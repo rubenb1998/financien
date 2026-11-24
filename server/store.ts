@@ -5,7 +5,7 @@ import type { Correction, Goal, ImportResult, Ledger, RawTransaction, Scenario, 
 import type { SubscriptionView } from '../src/domain/subscription-view.ts';
 import type { SavingsPlan } from '../src/domain/savings-types.ts';
 
-export const dataDirectory = () => resolve(process.env.FINANCIEN_DATA_DIR ?? '.private');
+export const dataDirectory = (root = process.cwd()) => resolve(root, process.env.FINANCIEN_DATA_DIR ?? '.private');
 
 export function openStore() {
   const folder = dataDirectory();

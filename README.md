@@ -4,19 +4,40 @@ Een lokaal financieel dashboard voor één gebruiker. Importeer Rabobank-afschri
 
 ## Starten
 
-Installeer Node.js 24 of nieuwer en Python 3. Open een terminal in deze map.
+Installeer Node.js 24 of nieuwer en haal deze repository op. Open de startknop van je systeem vanuit de projectmap.
+
+- **macOS.** Dubbelklik op **Financiën.app** en sleep de app vanuit Finder naar je Dock om hem vast te zetten.
+- **Windows.** Dubbelklik op **Financien.exe**. Klik met rechts op de startknop en kies **Aan taakbalk vastmaken**. In Windows 11 staat die optie zo nodig onder **Meer opties weergeven**.
+
+De startknop installeert bij de eerste start de Node-pakketten, bouwt het dashboard en opent het in je standaardbrowser. De lokale server blijft draaien als je de browser sluit. De volgende klik gebruikt dezelfde server. Laat de startknop in de projectmap staan. Bij een startfout staan eventuele installatiedetails in `.private/launcher.log`.
+
+Je kunt het dashboard ook handmatig starten vanuit deze map.
 
 ```bash
 npm ci
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
 npm run build
 npm start
 ```
 
-Open **Financiën** op je computer. [Lokaal dashboard](http://127.0.0.1:4317/)
+Na `npm start` open je het lokale dashboard op poort 4317. De startknop kiest automatisch een andere lokale poort als die poort bezet is. [Lokaal dashboard](http://127.0.0.1:4317/)
 
-Op macOS kun je daarna ook **Start Financiën.command** openen. Op Windows gebruik je `py -3 -m venv .venv` en `.venv\Scripts\python.exe -m pip install -r requirements.txt`.
+### PDF-import instellen
+
+Installeer Python 3 en voer deze eenmalige installatie uit als je afschriften wilt importeren.
+
+**macOS**
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+**Windows**
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
 
 ## Samen met AI instellen
 
@@ -39,4 +60,4 @@ Deel openbaar de broncode en de generieke Markdown-bestanden. Houd de volledige 
 - [Systeemwerking en opdrachten](docs/systeem.md)
 - [Werkinstructies voor AI](AGENTS.md)
 
-`npm run check` voert de typecontrole en tests uit. Voor ontwikkeling start je de app met `npm run dev`.
+`npm run check` voert de typecontrole en tests uit. De workflow **Start op macOS en Windows** test ook de eerste start, het hergebruik van de achtergrondserver en de PDF-parser op beide systemen. Voor ontwikkeling start je de app met `npm run dev`.

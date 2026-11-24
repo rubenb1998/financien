@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { buildLedger } from '../src/domain/ledger.ts';
+import { healthPath, instanceHeader, localInstance } from './local-instance.ts';
 import { loadProfile } from './profile.ts';
 import { parsePdf } from './pdf.ts';
 import { openStore } from './store.ts';
@@ -56,6 +57,7 @@ async function importFile(request: IncomingMessage) {
 }
 
 export function createApi() {
+  const instance = localInstance();
   let store: ReturnType<typeof openStore> | undefined;
   return async (request: IncomingMessage, response: ServerResponse, next: () => void) => {
     const url = request.url?.split('?')[0] ?? '';
@@ -65,6 +67,10 @@ export function createApi() {
     if (!/^(?:127\.0\.0\.1|localhost)(?::\d+)?$/.test(host) ||
       (origin && origin !== `http://${host}`) || request.headers['sec-fetch-site'] === 'cross-site') {
       return respond(response, 403, { error: 'Open het dashboard via localhost.' });
+    }
+    if (request.method === 'GET' && url === healthPath) {
+      response.writeHead(204, { [instanceHeader]: instance, 'Cache-Control': 'no-store' });
+      return response.end();
     }
     try {
       store ??= openStore();

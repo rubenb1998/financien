@@ -1,0 +1,3 @@
+*.command text eol=lf
+Financiën.app/** -text
+Financien.exe -text

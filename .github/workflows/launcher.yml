@@ -1,0 +1,43 @@
+name: Start op macOS en Windows
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  launcher:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: Financiën test
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: Financiën test
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: python -m venv .venv
+      - if: runner.os == 'macOS'
+        run: .venv/bin/python -m pip install -r requirements.txt
+      - if: runner.os == 'Windows'
+        run: .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+      - name: Test native launcher from a clean checkout
+        run: node --no-warnings tests/launcher-smoke.mjs
+      - run: npm run check
+      - run: npm run build
+      - name: Show launcher log on failure
+        if: failure()
+        shell: bash
+        run: |
+          if test -f .private/launcher.log; then cat .private/launcher.log; fi

@@ -13,7 +13,9 @@ const virtualPython = fileURLToPath(new URL(
 export async function parsePdf(path: string): Promise<{ statement: Statement; transactions: RawTransaction[] }> {
   const executable = process.env.FINANCIEN_PYTHON ?? (existsSync(virtualPython) ? virtualPython : process.platform === 'win32' ? 'python' : 'python3');
   try {
-    const { stdout } = await execute(executable, [parser, path], { maxBuffer: 32 * 1024 * 1024, timeout: 90_000 });
+    const { stdout } = await execute(executable, ['-X', 'utf8', parser, path], {
+      maxBuffer: 32 * 1024 * 1024, timeout: 90_000, windowsHide: true,
+    });
     return JSON.parse(stdout);
   } catch (error) {
     const stderr = (error as { stderr?: string }).stderr?.trim();
