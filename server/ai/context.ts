@@ -22,6 +22,7 @@ export function readAiPageContext(value: unknown): AiPageContext | undefined {
   const merchant = typeof input.merchant === 'string' ? cleanText(input.merchant, 120) : undefined;
   return {
     page: input.page as AiPageContext['page'], from, to, category, group, merchant,
+    account: input.page === 'wealth' && typeof input.account === 'string' ? cleanText(input.account, 120) : undefined,
     reportId: input.page === 'reports' && typeof input.reportId === 'string' && isUuid.test(input.reportId) ? input.reportId : undefined,
     statementId: input.page === 'transactions' && typeof input.statementId === 'string' && /^[a-f0-9]{64}$/.test(input.statementId) ? input.statementId : undefined,
   };

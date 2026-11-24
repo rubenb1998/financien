@@ -77,6 +77,45 @@ test('saving insights use complete months and keep card purchases and work flows
   assert.equal(result.data.length, 1);
 });
 
+test('an explicit wealth period shows the full balance range without inventing dates beyond coverage', () => {
+  const ledger: Ledger = {
+    ...empty,
+    statements: [statement('bank', '2025-01-01', '2026-06-30')],
+    balances: [{ accountId: 'bank', amount: 20_000, date: '2025-01-01' }],
+    transactions: [booking('first', 'bank', '2025-02-02', 10_000), booking('last', 'bank', '2026-05-04', -1_000)],
+  };
+  const accounts = bankAccounts(ledger, '2026-11-24');
+  const selected = balanceTrend(accounts, undefined, '2025-02-10', '2026-05-31');
+  assert.deepEqual(selected[0], { date: '2025-02-10', amount: 30_000 });
+  assert.deepEqual(selected.at(-1), { date: '2026-05-31', amount: 29_000 });
+  assert.ok(selected.length > 365);
+  assert.deepEqual(balanceTrend(accounts, undefined, '2026-07-01', '2026-07-31'), []);
+});
+
+test('wealth period filters keep whole months with complete coverage of all sources', () => {
+  const sources = [
+    statement('bank', '2025-01-01', '2025-10-31'),
+    statement('card', '2025-01-01', '2025-01-31', 'card'),
+    statement('card', '2025-03-01', '2025-10-31', 'card'),
+  ];
+  const row = (id: string, date: string, amount: number, kind: Transaction['kind'], category: string,
+    source: RawTransaction['source']): Transaction =>
+    ({ ...booking(id, source, date, amount, source), originalMerchant: id, kind, category, reason: '', review: false });
+  const rows = [
+    row('pay', '2025-03-01', 200_000, 'income', 'salary', 'bank'),
+    row('subscription', '2025-03-10', -3_000, 'expense', 'streaming', 'card'),
+  ];
+  const today = '2025-10-26';
+  assert.deepEqual(savingsInsights(rows, sources, today, null)?.covered, ['2025-04', '2025-05', '2025-06', '2025-07', '2025-08', '2025-09']);
+  assert.equal(savingsInsights(rows, sources, today, null, { from: '', to: '' })?.covered.length, 8);
+  const selected = savingsInsights(rows, sources, today, 20, { from: '2025-01-10', to: '2025-04-20' });
+  assert.deepEqual(selected?.covered, ['2025-03']);
+  assert.equal(selected?.room, 197_000);
+  assert.equal(selected?.fixed, 3_000);
+  assert.equal(selected?.target, 40_000);
+  assert.equal(savingsInsights(rows, sources, today, null, { from: '2025-02-01', to: '2025-02-28' }), undefined);
+});
+
 test('balance and savings settings reject invalid dates, balances and percentages', () => {
   const valid = { accountId: '123456789abcdef01234', amount: -100, date: '2026-01-31' };
   assert.equal(readBalance(valid).balance.amount, -100);

@@ -2,6 +2,8 @@ import { byCategory } from './analytics.ts';
 import { groupOf } from './categories.ts';
 import { addDays, completeMonths, monthSpan, shiftMonth } from './dates.ts';
 import { summarize } from './ledger.ts';
+import { periodBounds } from './periods.ts';
+import type { DateRange } from './periods.ts';
 import type { AccountBalance, Ledger, Statement, Transaction } from './types.ts';
 import { isWork } from './work.ts';
 
@@ -80,12 +82,12 @@ export function latestBankBalance(accounts: AccountHistory[]) {
   return range && { date: range.to, amount: range.amountAt(range.to), accounts: accounts.filter(account => account.to).length };
 }
 
-export function balanceTrend(accounts: AccountHistory[], days: number, from?: string, to?: string) {
+export function balanceTrend(accounts: AccountHistory[], days: number | undefined, from?: string, to?: string) {
   const range = balanceRange(accounts);
   if (!range) return [];
   const end = to && to < range.to ? to : range.to;
   if (end < range.from) return [];
-  const start = [range.from, from ?? '', addDays(end, 1 - days)].sort().at(-1)!;
+  const start = [range.from, from ?? '', days === undefined ? '' : addDays(end, 1 - days)].sort().at(-1)!;
   const points: BalanceSnapshot[] = [];
   for (let date = start; date <= end; date = addDays(date, 1)) {
     points.push({ date, amount: range.amountAt(date) });
@@ -93,16 +95,23 @@ export function balanceTrend(accounts: AccountHistory[], days: number, from?: st
   return points;
 }
 
-export function savingsInsights(rows: Transaction[], statements: Statement[], today: string, rate: number | null) {
-  const complete = completeMonths(statements).filter(month => month < today.slice(0, 7));
+export function savingsInsights(rows: Transaction[], statements: Statement[], today: string, rate: number | null, range?: DateRange) {
+  const currentMonth = today.slice(0, 7);
+  const complete = completeMonths(statements).filter(month => {
+    if (month >= currentMonth) return false;
+    if (!range) return true;
+    const { from, to } = periodBounds({ unit: 'month', month });
+    return (!range.from || from >= range.from) && (!range.to || to <= range.to);
+  });
   const latest = complete.at(-1);
   if (!latest) return undefined;
-  const covered = complete.filter(month => month >= shiftMonth(latest, -5));
+  const covered = range ? complete : complete.filter(month => month >= shiftMonth(latest, -5));
   const months = monthSpan(covered[0], latest);
-  const personal = rows.filter(row => covered.includes(row.date.slice(0, 7)) && !isWork(row));
+  const included = new Set(covered);
+  const personal = rows.filter(row => included.has(row.date.slice(0, 7)) && !isWork(row));
   const byMonth = Map.groupBy(personal, row => row.date.slice(0, 7));
   const data = months.map(month => {
-    if (!covered.includes(month)) return { month, income: null, room: null };
+    if (!included.has(month)) return { month, income: null, room: null };
     const bookings = byMonth.get(month) ?? [];
     const income = bookings.filter(row => row.kind === 'income' && ['salary', 'benefits'].includes(row.category))
       .reduce((sum, row) => sum + row.amount, 0);

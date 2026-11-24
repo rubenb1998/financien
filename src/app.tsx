@@ -47,6 +47,7 @@ const titles: Record<Page, string> = { ...pageNames, overview: 'Financieel overz
 
 export function App() {
   const [ledger, setLedger] = useState<DashboardLedger | null>(null);
+  const [wealthFilters, setWealthFilters] = useState(emptyFilters);
   const [statementFilters, setStatementFilters] = useState(() => new Map<string, Filters>());
   const [filterOpen, setFilterOpen] = useState(false);
   const [miniChat, setMiniChat] = useState(false);
@@ -66,7 +67,8 @@ export function App() {
   const { route, filters: generalFilters, setFilters: setGeneralFilters, refreshRoute, followMenuLink } = useDashboardNavigation(onNavigate);
   const { page, categoryRoute, transactionScope, planId, reportId } = route;
   const statementId = transactionScope?.type === 'statement' ? transactionScope.key : undefined;
-  const filters = statementId ? statementFilters.get(statementId) ?? emptyFilters : generalFilters;
+  const wealthPage = page === 'wealth';
+  const filters = wealthPage ? wealthFilters : statementId ? statementFilters.get(statementId) ?? emptyFilters : generalFilters;
 
   const reload = useCallback(async () => {
     const data = await api.load();
@@ -93,6 +95,10 @@ export function App() {
   }, [route]);
 
   function setFilters(update: SetStateAction<Filters>) {
+    if (wealthPage) {
+      setWealthFilters(update);
+      return;
+    }
     if (!statementId) {
       setGeneralFilters(update);
       return;
@@ -105,15 +111,27 @@ export function App() {
   const today = todayInAmsterdam();
   const accounts = useMemo(() => ledger ? bankAccounts(ledger, today) : [], [ledger, today]);
   const accountLabels = useMemo(() => new Map(ledger?.statements.map(row => [row.accountId, row.label])), [ledger]);
+  const wealthAccount = wealthPage ? accounts.find(account => account.id === filters.account) : undefined;
+  useEffect(() => {
+    if (ledger && wealthFilters.account && !accounts.some(account => account.id === wealthFilters.account)) {
+      setWealthFilters(current => ({ ...current, account: '' }));
+    }
+  }, [ledger, accounts, wealthFilters.account]);
   const statement = ledger?.statements.find(row => row.id === statementId);
   const allCoverage = coverage(ledger?.statements ?? []);
   const coveredStatements = statementId ? statement ? [statement] : [] : ledger?.statements ?? [];
   const sources = coveredStatements.filter(row => !filters.account || row.accountId === filters.account);
   const latestMonth = allCoverage.to.slice(0, 7);
-  const period = filters.period ?? (!statementId && !filters.allPeriods && ledger?.presentation.period !== 'allTime' && !filters.from && !filters.to && latestMonth
+  const period = filters.period ?? (!wealthPage && !statementId && !filters.allPeriods && ledger?.presentation.period !== 'allTime' && !filters.from && !filters.to && latestMonth
     ? { unit: 'year', month: latestMonth } as const : undefined);
-  const periodPicker = { period, months: availableMonths(sources), onChange: choosePeriod };
+  const periodSources = wealthPage ? [...coveredStatements, ...accounts] : sources;
+  const periodPicker = { period, months: availableMonths(periodSources), onChange: choosePeriod };
   const bounds = period ? periodBounds(period) : { from: '', to: '' };
+  const wealthFrom = filters.from > bounds.from ? filters.from : bounds.from;
+  const wealthTo = filters.to && (!bounds.to || filters.to < bounds.to) ? filters.to : bounds.to;
+  const hasWealthRange = wealthPage && Boolean(period || filters.allPeriods || filters.from || filters.to);
+  const wealthRange = useMemo(() => hasWealthRange ? { from: wealthFrom, to: wealthTo } : undefined,
+    [hasWealthRange, wealthFrom, wealthTo]);
   const covered = sources.flatMap(source => {
     const selection = intersectDates(source, bounds);
     const range = selection && intersectDates(selection, filters);
@@ -147,7 +165,7 @@ export function App() {
   const distributionRows = page === 'overview' && (filters.group || filters.category)
     ? personalRows(filterLedger(rows, { ...baseFilters, group: '', category: '' })) : analyticalRows;
   const tags = useMemo(() => tagOptions(rows), [rows]);
-  const fullWidth = page === 'reports' || page === 'wealth' || page === 'chat';
+  const fullWidth = page === 'reports' || page === 'chat';
   const activeFilters = page !== 'sources' && !fullWidth;
   const activeRow = rows.find(row => row.id === selected);
   const linked = rows.find(row => row.id === activeRow?.linkedId || row.linkedId === selected && selected !== undefined);
@@ -160,7 +178,11 @@ export function App() {
   const pageTitle = transactionLabel ?? (categoryRoute?.bookings ? `Boekingen · ${subject}` : subject);
   const chat = useAiConversation(aiSettings, Boolean(ledger) && (page === 'chat' || miniChat), reload, {
     page, reportId, statementId,
-    ...(activeFilters && { from, to, group: scopedFilters.group, category: scopedFilters.category }),
+    ...(wealthPage ? {
+      from: wealthRange?.from || (filters.allPeriods && periodPicker.months[0] ? periodPicker.months[0] + '-01' : undefined),
+      to: wealthRange?.to, account: wealthAccount?.label,
+    }
+      : activeFilters && { from, to, group: scopedFilters.group, category: scopedFilters.category }),
     merchant: providerLabel,
   });
 
@@ -211,10 +233,13 @@ export function App() {
       </div>
       <header className="page-head">
         <div><h1 ref={heading} tabIndex={-1}>{pageTitle}</h1>
-          {activeFilters && ledger && <><p className="period" aria-live="polite"><CalendarDays size={16} aria-hidden="true" />
-            <span>{period && <><strong>{periodLabel(period)}</strong><span aria-hidden="true"> · </span></>}{periodCaption}</span></p>
+          {activeFilters && ledger && <>
+            {wealthPage ? (period || filters.allPeriods) && <p className="period" aria-live="polite">
+              <CalendarDays size={16} aria-hidden="true" /><strong>{period ? periodLabel(period) : 'Volledige periode'}</strong>
+            </p> : <p className="period" aria-live="polite"><CalendarDays size={16} aria-hidden="true" />
+              <span>{period && <><strong>{periodLabel(period)}</strong><span aria-hidden="true"> · </span></>}{periodCaption}</span></p>}
             <FilterSummary filters={filters} set={setFilters} analytics={analytics} categoryLocked={Boolean(categoryRoute)}
-              accountLabel={accountLabels.get(filters.account)}
+              accountLabel={wealthAccount?.label ?? accountLabels.get(filters.account)}
               selection={transactionLabel ? { label: transactionLabel, href: '#transactions' } : undefined} /></>}
         </div>
         {activeFilters && <button type="button" className="secondary mobile-filter" aria-expanded={filterOpen} aria-controls="filters" onClick={() => setFilterOpen(true)}><ListFilter size={17} />Filters</button>}
@@ -229,7 +254,7 @@ export function App() {
         {page === 'overview' && <Suspense fallback={null}>
           <DashboardBalance accounts={accounts} edit={setBalanceSelection} />
         </Suspense>}
-        {!rows.length && page !== 'sources' && page !== 'subscriptions' && !fullWidth ? <Empty message="Importeer je eerste afschrift."><a className="primary" href="#sources">Afschrift toevoegen</a></Empty> : <>
+        {!rows.length && page !== 'sources' && page !== 'subscriptions' && !wealthPage && !fullWidth ? <Empty message="Importeer je eerste afschrift."><a className="primary" href="#sources">Afschrift toevoegen</a></Empty> : <>
           <Suspense fallback={<p className="loading" role="status">Analyse laden…</p>}>
             {page === 'chat' && <ChatPage settings={aiSettings} reload={reload} chat={chat} importModel={importModel} setImportModel={setImportChoice}
               saveSettings={saveAiSettings} />}
@@ -240,7 +265,8 @@ export function App() {
               trend={trend} accountLabels={accountLabels} onOpen={openRow} incomeOnly={filters.kind === 'income'} />}
             {page === 'reports' && <ReportsPage aiSettings={aiSettings} saveAiSettings={saveAiSettings} plans={ledger.plans ?? []} planId={planId} reportId={reportId} goals={ledger.goals} hasStatements={ledger.statements.length > 0} />}
             {page === 'wealth' && <WealthPage accounts={accounts} rows={rows} statements={ledger.statements}
-              today={today} rate={ledger.savingsRate ?? null} reload={reload} edit={setBalanceSelection} />}
+              today={today} rate={ledger.savingsRate ?? null} range={wealthRange} selection={wealthAccount}
+              reload={reload} edit={setBalanceSelection} />}
             {page === 'work' && <WorkClaims rows={filtered} trend={trend}
               accountLabels={accountLabels} open={openRow} transactionFilters={transactionFilters} />}
             {page === 'subscriptions' && <SubscriptionPage rows={rows} selection={new Set(filtered.map(row => row.id))}
@@ -265,7 +291,9 @@ export function App() {
     </main>
     {!fullWidth && <FilterRail filters={filters} set={setFilters} statements={coveredStatements} open={filterOpen}
       close={() => setFilterOpen(false)} enabled={activeFilters} tags={tags} analytics={analytics}
-      periodPicker={periodPicker} reset={() => setFilters({ ...emptyFilters, period: statementId ? undefined : period, allPeriods: filters.allPeriods })}
+      periodPicker={periodPicker} reset={() => setFilters(wealthPage ? emptyFilters
+        : { ...emptyFilters, period: statementId ? undefined : period, allPeriods: filters.allPeriods })}
+      bankAccounts={wealthPage ? accounts.map(({ id, label }) => ({ value: id, label })) : undefined}
       categoryLocked={Boolean(categoryRoute)} />}
     {ledger && page !== 'chat' && <Suspense fallback={null}>
       <FloatingChat settings={aiSettings} chat={chat} open={miniChat} setOpen={setMiniChat} />

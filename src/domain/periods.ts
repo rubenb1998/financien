@@ -23,7 +23,7 @@ export function periodBounds(period: Period) {
   return { from: `${start}-01`, to: addDays(`${shiftMonth(start, length)}-01`, -1) };
 }
 
-type DateRange = Pick<Statement, 'from' | 'to'>;
+export type DateRange = Pick<Statement, 'from' | 'to'>;
 
 export function availableMonths(statements: DateRange[]) {
   return [...new Set(statements.flatMap(({ from, to }) => monthSpan(from, to)))].sort();

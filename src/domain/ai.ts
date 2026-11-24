@@ -74,6 +74,7 @@ export interface AiPageContext {
   page: Page;
   from?: string;
   to?: string;
+  account?: string;
   group?: string;
   category?: string;
   merchant?: string;

@@ -2,12 +2,12 @@ import { Banknote, Landmark, Percent, PiggyBank, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api } from '../api.ts';
-import { Dropdown } from '../components/dropdown.tsx';
 import { Empty, Metric, Panel, RankLink } from '../components/ui.tsx';
 import { displayDate, displayMonthYear } from '../domain/dates.ts';
 import { money, signedMoney } from '../domain/format.ts';
+import type { DateRange } from '../domain/periods.ts';
 import type { Statement, Transaction } from '../domain/types.ts';
-import { balanceTrend, savingsInsights } from '../domain/wealth.ts';
+import { balanceTrend, latestBankBalance, savingsInsights } from '../domain/wealth.ts';
 import type { AccountHistory, BalanceSnapshot } from '../domain/wealth.ts';
 import { categoryHref } from '../routes.ts';
 import { BalanceChart, SavingsRoomChart } from './wealth-charts.tsx';
@@ -62,33 +62,32 @@ const balancePeriods = [
   { days: 365, label: '365 dagen' },
 ];
 
-export function WealthPage({ accounts, rows, statements, today, rate, reload, edit }: BalanceProps & {
+export function WealthPage({ accounts, rows, statements, today, rate, range, selection, reload, edit }: BalanceProps & {
   rows: Transaction[];
   statements: Statement[];
   today: string;
   rate: number | null;
+  range?: DateRange;
+  selection?: AccountHistory;
   reload: () => Promise<void>;
 }) {
-  const [selected, setSelected] = useState('');
   const [days, setDays] = useState(180);
-  const configured = accounts.filter(account => account.anchor);
-  const selection = configured.find(account => account.id === selected);
   const displayed = selection ? [selection] : accounts;
-  const missing = displayed.filter(account => !account.anchor).length;
-  const points = balanceTrend(displayed, days);
+  const configured = displayed.filter(account => account.anchor);
+  const missing = displayed.length - configured.length;
+  const points = balanceTrend(displayed, range ? undefined : days, range?.from, range?.to);
   const totalDate = points.at(-1)?.date;
-  const newerBalances = !selection && totalDate && configured.some(account => account.to > totalDate);
-  const insights = useMemo(() => savingsInsights(rows, statements, today, rate), [rows, statements, today, rate]);
+  const newerBalances = !selection && totalDate && configured.some(account => account.to > (range?.to || totalDate));
+  const insights = useMemo(() => savingsInsights(rows, statements, today, rate, range), [rows, statements, today, rate, range]);
+  const noMonths = range ? 'Er zijn geen volledige afschriftmaanden in deze periode.'
+    : 'Importeer minimaal één volledige maand voor alle gebruikte bankrekeningen en creditcards.';
   return <>
     <Panel title={selection ? selection.label : missing && configured.length ? 'Bekend banksaldo' : 'Totaal banksaldo'}
-      className="wealth-balance" action={configured.length > 1 && <div className="wealth-account-picker">
-        <Dropdown label="Rekening in de grafiek" value={selection?.id ?? ''} onChange={setSelected}
-          options={[{ value: '', label: 'Alle rekeningen' }, ...configured.map(account => ({ value: account.id, label: account.label }))]} />
-      </div>}>
+      className="wealth-balance">
       {points.length ? <>
         <div className="wealth-balance-summary">
           <BalanceHeadline points={points} missing={missing} />
-          {points.length > 1 && <div className="segmented wealth-periods" role="group" aria-label="Periode saldoverloop">
+          {!range && points.length > 1 && <div className="segmented wealth-periods" role="group" aria-label="Periode saldoverloop">
             {balancePeriods.map(period => <button type="button" key={period.days} aria-pressed={days === period.days}
               onClick={() => setDays(period.days)}>{period.label}</button>)}
           </div>}
@@ -96,9 +95,12 @@ export function WealthPage({ accounts, rows, statements, today, rate, reload, ed
         {points.length > 1 ? <BalanceChart data={points} />
           : <p className="balance-help single-balance">Eén saldodatum beschikbaar. Voor een trend zijn aansluitende afschriften nodig.</p>}
         {newerBalances && <p className="balance-help">Het totaal gebruikt de laatste datum waarop alle ingestelde saldi bekend zijn.</p>}
-      </> : configured.length ? <Empty message="Er is geen datum met saldo voor alle ingestelde rekeningen. Kies een rekening om het eigen verloop te zien." />
-        : <Empty message="Vul een saldo en datum in om te zien hoeveel er op je bankrekeningen staat.">
-          <button type="button" className="primary" onClick={() => edit('setup')}>Saldo instellen</button>
+      </> : configured.length ? <Empty message={range && latestBankBalance(displayed)
+        ? 'Er zijn geen berekende saldi in deze periode.'
+        : 'Er is geen datum met saldo voor alle ingestelde rekeningen. Kies een rekening om het eigen verloop te zien.'} />
+        : <Empty message={selection ? 'Vul een saldo en datum in voor deze rekening.'
+          : 'Vul een saldo en datum in om te zien hoeveel er op je bankrekeningen staat.'}>
+          <button type="button" className="primary" onClick={() => edit(selection?.id ?? 'setup')}>Saldo instellen</button>
         </Empty>}
     </Panel>
 
@@ -144,7 +146,7 @@ export function WealthPage({ accounts, rows, statements, today, rate, reload, ed
             <div><dt>Over van netto-inkomen</dt><dd>{Math.round(insights.room / insights.income * 100)}%</dd></div>
           </dl>
           {insights.room >= insights.target
-            ? <p className="wealth-target-status balance-up">Gemiddeld haal je dit doel met je huidige uitgaven.</p>
+            ? <p className="wealth-target-status balance-up">Gemiddeld haal je dit doel in deze periode.</p>
             : <p className="wealth-target-status">Gemiddeld kom je {money(insights.target - insights.room)} per maand tekort voor dit doel.</p>}
         </>}
         {insights && insights.income <= 0 && <p className="balance-help">Voor een bedrag bij je spaardoel is een maand met geregistreerd salaris of toeslagen nodig.</p>}
@@ -161,7 +163,7 @@ export function WealthPage({ accounts, rows, statements, today, rate, reload, ed
             <SavingsRoomChart insights={insights} />
             <p className="balance-help">Persoonlijke uitgaven zijn inclusief creditcardaankopen. Werkdeclaraties en kruisposten vallen buiten deze berekening.</p>
           </> : <Empty message={insights ? 'In deze maanden is geen salaris of toeslag herkend.'
-            : 'Importeer minimaal één volledige maand voor alle gebruikte bankrekeningen en creditcards.'} />}
+            : noMonths} />}
         </Panel>
       </div>
     </section>

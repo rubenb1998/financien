@@ -2,7 +2,7 @@
 
 Financiën is een lokaal dashboard voor je persoonlijke financiën. Importeer bankafschriften om te zien waar je geld naartoe gaat, welke kosten terugkomen en hoeveel ruimte je hebt om te sparen. Deze repository bevat de broncode, startknoppen voor macOS en Windows, tests en handleidingen.
 
-- **Inzicht in je geld** — bekijk inkomsten, uitgaven, banksaldi, categorieën en aanbieders. Zoek boekingen terug, pas de indeling aan en volg abonnementen en werkdeclaraties.
+- **Inzicht in je geld** — bekijk inkomsten, uitgaven, banksaldi, categorieën en aanbieders. Filter het vermogen op periode of bankrekening. Zoek boekingen terug, pas de indeling aan en volg abonnementen en werkdeclaraties.
 - **Rapportages en spaarscenario’s** — vergelijk uitgaven over een periode, bekijk hoe je saldo zich kan ontwikkelen en download een rapport met de grafieken die je kiest.
 - **Optionele AI-chat** — stel vragen over je cijfers vanuit het dashboard, kies je model en bewaar terugkerende voorkeuren in je lokale chatgeheugen.
 

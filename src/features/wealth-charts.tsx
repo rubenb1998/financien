@@ -5,6 +5,8 @@ import { money, roundedMoney } from '../domain/format.ts';
 import type { BalanceSnapshot, savingsInsights } from '../domain/wealth.ts';
 
 const dayLabel = new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const dayYearLabel = new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC' });
+const spansYears = (first: string, last: string) => first.slice(0, 4) !== last.slice(0, 4);
 const axisText = { fill: '#606981', fontSize: 12 };
 const tooltipStyle = { border: '1px solid #dddff0', borderRadius: 9, boxShadow: '0 4px 15px #27376014', fontSize: 13 };
 
@@ -13,6 +15,7 @@ export function BalanceChart({ data, compact = false }: { data: BalanceSnapshot[
   if (data.length < 2) return null;
   const steps = Math.min(data.length - 1, compact ? 3 : 5);
   const ticks = Array.from({ length: steps + 1 }, (_, index) => data[Math.round(index * (data.length - 1) / steps)].date);
+  const tickDate = !compact && spansYears(data[0].date, data.at(-1)!.date) ? dayYearLabel : dayLabel;
   const amounts = data.map(point => point.amount);
   const min = Math.min(...amounts);
   const max = Math.max(...amounts);
@@ -24,7 +27,7 @@ export function BalanceChart({ data, compact = false }: { data: BalanceSnapshot[
           <stop offset="100%" stopColor="#8065dc" stopOpacity=".035" />
         </linearGradient></defs>
         {!compact && <CartesianGrid stroke="#e3e6ee" vertical={false} strokeDasharray="3 5" />}
-        <XAxis dataKey="date" ticks={ticks} tickFormatter={date => dayLabel.format(new Date(date))}
+        <XAxis dataKey="date" ticks={ticks} tickFormatter={date => tickDate.format(new Date(date))}
           axisLine={false} tickLine={false} tick={axisText} interval="preserveStartEnd" tickMargin={7} padding={{ left: compact ? 14 : 4, right: 11 }} />
         <YAxis hide={compact} axisLine={false} tickLine={false} tick={axisText} width={74}
           domain={min === max ? [min - 100, max + 100] : ['auto', 'auto']} tickFormatter={roundedMoney} />
@@ -40,12 +43,13 @@ export function BalanceChart({ data, compact = false }: { data: BalanceSnapshot[
 
 export function SavingsRoomChart({ insights }: { insights: NonNullable<ReturnType<typeof savingsInsights>> }) {
   const hasTarget = insights.target !== null;
+  const multiYear = spansYears(insights.covered[0], insights.covered.at(-1)!);
   return <>
     <div className="savings-room-chart" role="group" aria-label="Spaarruimte en spaardoel per maand">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <ComposedChart data={insights.data} margin={{ top: 7, right: 10, bottom: 0, left: 0 }}>
           <CartesianGrid stroke="#e3e6ee" vertical={false} strokeDasharray="3 5" />
-          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisText} tickFormatter={displayMonth} tickMargin={8} />
+          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisText} tickFormatter={month => multiYear ? displayMonth(month) + ' ' + month.slice(2, 4) : displayMonth(month)} tickMargin={8} />
           <YAxis axisLine={false} tickLine={false} tick={axisText} width={74} tickFormatter={roundedMoney} />
           <Tooltip contentStyle={tooltipStyle} formatter={value => money(Number(value))}
             labelFormatter={month => typeof month === 'string' ? displayMonthYear(month) : ''} />
