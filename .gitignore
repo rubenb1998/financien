@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.private/
+.venv/
+__pycache__/
+*.pdf
+.DS_Store
+
+# Local finance data, exports and credentials
+.env
+.env.*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.db
+*.db-*
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.ofx
+*.qif
+*.mt940
+*.backup
+*.zip
+*.log

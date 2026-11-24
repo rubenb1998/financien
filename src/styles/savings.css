@@ -1,0 +1,56 @@
+.app-shell-planning { grid-template-columns: 218px minmax(0, 1fr); }
+.app-shell-planning .main-content { width: 100%; max-width: 1380px; margin-inline: auto; }
+.savings-scenarios, .savings-insights {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 14px; min-width: 0;
+}
+.savings-scenario {
+  display: flex; flex-direction: column; align-items: start; gap: 5px; color: var(--ink);
+}
+.savings-scenario[aria-current="page"] { border-color: #aa9ae8; background: #faf8ff; box-shadow: inset 0 0 0 1px #dcd2f8; }
+.savings-scenario:hover { color: var(--purple-deep); border-color: #aa9ae8; }
+.savings-scenario strong { font-size: 1.15rem; font-weight: 720; letter-spacing: -.045em; }
+.savings-scenario span, .savings-scenario small { color: var(--muted); font-size: .83rem; }
+.savings-chart-panel { display: flex; flex-direction: column; }
+.savings-chart { flex: 1 1 auto; height: 270px; min-width: 0; }
+.savings-chart-selectable { cursor: pointer; }
+.savings-chart-dialog { width: min(1080px, calc(100vw - 24px)); }
+.savings-chart-dialog .savings-chart { height: clamp(190px, 62dvh, 570px); }
+.savings-legend { display: flex; flex-wrap: wrap; gap: 6px 11px; padding: 0; margin: 7px 0 0; list-style: none; color: var(--muted); }
+.savings-legend li { display: flex; align-items: center; gap: 6px; font-size: .79rem; }
+.savings-legend i { width: 13px; height: 3px; border-radius: 2px; }
+.forecast-month { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
+.forecast-month dl { display: flex; flex-wrap: wrap; gap: 9px 18px; margin: 10px 0 0; }
+.forecast-month dt { color: var(--muted); font-size: .79rem; }
+.forecast-month dd { margin: 3px 0 0; font-weight: 680; font-variant-numeric: tabular-nums; }
+.savings-budget dl { margin: 0; }
+.savings-budget dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 8px 2px; font-size: .9rem; }
+.savings-budget dt { color: var(--muted); }
+.savings-budget dd { margin: 0; font-weight: 675; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.savings-budget-total { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.savings-budget-free { margin-top: 4px; padding-inline: 9px !important; border-radius: 7px; background: var(--green-light); }
+.savings-budget-free dt, .savings-budget-free dd { color: var(--green); font-weight: 700; }
+.savings-budget-free small { display: block; margin-top: 3px; font-size: .76rem; font-weight: 500; }
+.savings-gap { background: #faf8ff; border-color: #ddd5f3; }
+.savings-gap h2 { font-size: 1rem; letter-spacing: -.025em; }
+.savings-gap p { color: var(--muted); margin-top: 6px; font-size: .88rem; line-height: 1.5; }
+.savings-cuts td:first-child { min-width: 205px; }
+.savings-cuts td small { line-height: 1.4; }
+.budget-category-link { white-space: normal; }
+.savings-detail > summary { font-size: 1rem; color: var(--ink); }
+.savings-detail[open] > :not(summary) { margin-top: 12px; }
+.savings-detail .muted { line-height: 1.5; font-size: .87rem; }
+.savings-basis-facts, .savings-income-sources { display: flex; flex-wrap: wrap; gap: 8px; }
+.savings-basis-facts > div, .savings-income-sources > span {
+  background: var(--soft); border-radius: 8px; padding: 9px 10px; color: var(--muted); font-size: .81rem;
+}
+.savings-basis-facts b { display: block; color: var(--ink); margin-bottom: 3px; }
+.savings-income-sources strong { color: var(--ink); }
+.savings-exclusions h3 { font-size: .94rem; }
+.savings-exclusions ul, .savings-previous { list-style: none; padding: 0; margin: 6px 0 0; }
+.savings-exclusions li { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; font-size: .87rem; }
+.savings-exclusions small { display: block; margin-top: 3px; color: var(--muted); }
+@media (min-width: 1600px) { .app-shell-planning { grid-template-columns: 238px minmax(0, 1fr); } }
+@media (max-width: 1230px) { .app-shell-planning { grid-template-columns: 192px minmax(0, 1fr); } }
+@media (max-width: 1060px) { .app-shell-planning { grid-template-columns: 190px minmax(0, 1fr); } }
+@media (max-width: 830px) { .savings-insights { grid-template-columns: 1fr; } }
+@media (max-width: 440px) { .savings-scenario strong { font-size: 1rem; } .savings-scenarios { gap: 8px; } }

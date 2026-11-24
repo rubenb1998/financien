@@ -1,0 +1,64 @@
+.dropdown { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.dropdown-label { color: var(--muted); font-size: .88rem; font-weight: 560; }
+.dropdown .visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.dropdown-trigger {
+  display: flex; align-items: center; gap: 8px; justify-content: space-between;
+  min-width: 0; min-height: 41px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--ink); text-align: left; font-size: .9rem; font-weight: 560;
+}
+.dropdown-trigger > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropdown-trigger:hover { border-color: #bfb5e4; background: #fbfaff; }
+.dropdown-trigger[aria-expanded=true] { border-color: #a99ae3; box-shadow: 0 0 0 2px var(--purple-light); }
+.dropdown-trigger[aria-expanded=true]:focus-visible { outline: none; }
+.dropdown-chevron { color: var(--subtle); margin-left: auto; transition: transform .15s ease; }
+.dropdown-trigger[aria-expanded=true] .dropdown-chevron { color: var(--purple); transform: rotate(180deg); }
+.dropdown-count {
+  min-width: 19px; padding: 2px 4px; border-radius: 5px; text-align: center;
+  color: var(--purple-deep); background: var(--purple-light); font-size: .72rem; font-weight: 680;
+}
+.dropdown-compact .dropdown-trigger { min-height: 38px; font-size: .85rem; }
+.filter-section .dropdown-trigger { min-height: 37px; }
+.filter-section .dropdown-label { font-size: .83rem; }
+.merchant-toolbar { align-items: center; }
+
+.dropdown-popup {
+  --dropdown-max-height: 356px;
+  position: fixed; inset: auto; margin: 0; max-height: var(--dropdown-max-height);
+  border: 1px solid #ddd8ec; border-radius: 12px; padding: 5px;
+  background: var(--surface); color: var(--ink); box-shadow: 0 12px 32px #24214023, 0 3px 8px #32285910;
+  overflow: hidden;
+}
+.dropdown-popup:popover-open { display: flex; flex-direction: column; }
+.dropdown-popup:not([data-positioned]) { visibility: hidden; }
+.dropdown-search { position: relative; padding: 3px 3px 7px; flex: 0 0 auto; }
+.dropdown-search > svg { position: absolute; top: 14px; left: 13px; color: var(--subtle); pointer-events: none; }
+.dropdown-search input[type=search] {
+  display: block; padding: 7px 10px 7px 32px; min-height: 36px;
+  border-radius: 7px; background: #f8f7fc; font-size: .87rem;
+}
+.dropdown-search input:focus { border-color: #b9abea; outline: none; box-shadow: 0 0 0 2px var(--purple-light); }
+.dropdown-options { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; outline: none; }
+.dropdown-group-label {
+  padding: 9px 9px 4px; color: var(--muted); font-size: .69rem; font-weight: 680;
+  letter-spacing: .045em; text-transform: uppercase;
+}
+.dropdown-option {
+  display: flex; align-items: center; gap: 8px; min-height: 35px; padding: 7px 9px;
+  border-radius: 7px; cursor: pointer; color: var(--ink); font-size: .88rem; line-height: 1.25;
+}
+.dropdown-option-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.dropdown-option[aria-selected=true] { color: var(--purple-deep); background: #f5f2ff; font-weight: 650; }
+.dropdown-option[data-active=true], .dropdown-option:hover { background: var(--purple-light); color: var(--purple-deep); }
+.dropdown-check { color: var(--purple); }
+.dropdown-checkbox {
+  display: inline-grid; flex: 0 0 auto; place-items: center; width: 16px; height: 16px;
+  border: 1px solid #b9b1cc; border-radius: 4px; background: var(--surface);
+}
+.dropdown-option[aria-selected=true] .dropdown-checkbox { background: var(--purple); border-color: var(--purple); color: #fff; }
+.dropdown-empty { padding: 13px 9px; color: var(--muted); font-size: .86rem; }
+.dropdown-footer { border-top: 1px solid var(--border); margin: 4px 3px 0; padding: 4px 6px 2px; }
+@media (pointer: coarse) { .dropdown-option { min-height: 42px; } }
+@media (prefers-reduced-motion: reduce) { .dropdown-chevron { transition: none; } }
