@@ -31,6 +31,33 @@ static BOOL find_node(wchar_t *path, DWORD size) {
     return FALSE;
 }
 
+static BOOL start_node(const wchar_t *node, wchar_t *command, const wchar_t *project,
+                       HANDLE input, HANDLE output, PROCESS_INFORMATION *process) {
+    SIZE_T size = 0;
+    InitializeProcThreadAttributeList(NULL, 1, 0, &size);
+    LPPROC_THREAD_ATTRIBUTE_LIST attributes = HeapAlloc(GetProcessHeap(), 0, size);
+    if (!attributes) return FALSE;
+
+    BOOL started = FALSE;
+    if (InitializeProcThreadAttributeList(attributes, 1, 0, &size)) {
+        // The detached server must not keep the caller's stdout and stderr open.
+        HANDLE inherited[] = { input, output };
+        STARTUPINFOEXW startup = {
+            .StartupInfo = { .cb = sizeof(startup), .dwFlags = STARTF_USESTDHANDLES,
+                             .hStdInput = input, .hStdOutput = output, .hStdError = output },
+            .lpAttributeList = attributes,
+        };
+        if (UpdateProcThreadAttribute(attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+                                      inherited, sizeof(inherited), NULL, NULL)) {
+            started = CreateProcessW(node, command, NULL, NULL, TRUE,
+                CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, NULL, project, &startup.StartupInfo, process);
+        }
+        DeleteProcThreadAttributeList(attributes);
+    }
+    HeapFree(GetProcessHeap(), 0, attributes);
+    return started;
+}
+
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR args, int show) {
     (void)instance;
     (void)previous;
@@ -57,11 +84,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR args, int show
         return show_error(L"De Financi\u00ebn-starter kon niet worden geopend.");
     HANDLE input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                &security, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    STARTUPINFOW startup = { .cb = sizeof(startup), .dwFlags = STARTF_USESTDHANDLES,
-                            .hStdInput = input, .hStdOutput = child_output, .hStdError = child_output };
     PROCESS_INFORMATION process;
-    BOOL started = input != INVALID_HANDLE_VALUE && SetHandleInformation(output, HANDLE_FLAG_INHERIT, 0)
-        && CreateProcessW(node, command, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, project, &startup, &process);
+    BOOL started = input != INVALID_HANDLE_VALUE && start_node(node, command, project, input, child_output, &process);
     if (input != INVALID_HANDLE_VALUE) CloseHandle(input);
     CloseHandle(child_output);
     if (!started) {

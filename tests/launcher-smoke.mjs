@@ -35,7 +35,9 @@ await new Promise((resolve, reject) => {
 
 let pid;
 try {
+  const startTime = performance.now();
   const [first, second] = await Promise.all([launch(), launch()]);
+  console.log('First launch completed in %ss.', ((performance.now() - startTime) / 1000).toFixed(1));
   assert.match(first, /^http:\/\/127\.0\.0\.1:43\d{2}\/$/);
   const port = Number(new URL(first).port);
   const health = await fetch(new URL('/api/health', first));
