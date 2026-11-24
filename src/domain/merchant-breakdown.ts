@@ -1,6 +1,7 @@
+import { trendSeries } from './analytics.ts';
 import { normalize } from './classify.ts';
-import { displayMonth, monthSpan } from './dates.ts';
 import { netSpend } from './ledger.ts';
+import type { TrendCalendar } from './periods.ts';
 import type { Transaction } from './types.ts';
 
 let providerAliases: ReadonlyMap<string, string> = new Map();
@@ -47,10 +48,9 @@ export function byMerchant(rows: Transaction[], kind: ActivityKind = 'spending')
   })).sort((a, b) => b.net - a.net || b.payments - a.payments || a.name.localeCompare(b.name, 'nl'));
 }
 
-export function monthlyActivity(rows: Transaction[], kind: ActivityKind, from: string, to: string) {
-  const grouped = Map.groupBy(rows, row => row.date.slice(0, 7));
-  return monthSpan(from, to).map(month => {
-    const { net, payments } = spendingActivity(grouped.get(month) ?? [], kind);
-    return { month, label: displayMonth(month), spent: net, payments };
+export function activitySeries(rows: Transaction[], kind: ActivityKind, calendar: TrendCalendar) {
+  return trendSeries(rows, calendar, entries => {
+    const { net, payments } = spendingActivity(entries, kind);
+    return { spent: net, payments };
   });
 }

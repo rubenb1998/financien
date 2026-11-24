@@ -1,18 +1,45 @@
-import { groupOf } from './categories.ts';
+import { categoriesFor, groupOf } from './categories.ts';
 import { applyCorrection, classify, normalize } from './classify.ts';
 import { attachCardFees, linkRefunds, linkTransfers } from './matching.ts';
 import { matchesTags } from './tags.ts';
-import { emptyRules } from './profile.ts';
-import { applyWorkRules } from './work.ts';
+import { emptyRules, matchesBooking, matchesKind } from './profile.ts';
+import { periodBounds } from './periods.ts';
+import { applyWorkRules, isWork } from './work.ts';
+import type { AiClassification } from './ai.ts';
+import type { ClassificationRules } from './profile.ts';
 import type { Filters, Ledger, Transaction } from './types.ts';
+
+export function canClassifyWithAi(row: Transaction, rules: ClassificationRules) {
+  if (row.kind === 'transfer' || row.kind === 'pending' || isWork(row) || /^koersopslag/i.test(row.originalMerchant)) return false;
+  if (rules.classifications.some(({ match, result }) => matchesKind(row.amount, result.kind) && matchesBooking(row, match))) {
+    return false;
+  }
+  const name = normalize(row.originalMerchant);
+  const description = row.code === 'id' ? normalize(row.details).slice(0, 190) : '';
+  return !rules.merchants.some(([pattern]) => pattern.test(name) || Boolean(description && pattern.test(description)))
+    && !rules.subscriptions.some(([pattern]) => pattern.test(name));
+}
+
+function applyAiClassification(row: Transaction, choice: AiClassification | undefined, rules: ClassificationRules): Transaction {
+  if (!choice || choice.confidence === 'keep' || !canClassifyWithAi(row, rules)) return row;
+  const category = choice.category && categoriesFor(row.kind).some(([id]) => id === choice.category) ? choice.category : undefined;
+  const review = choice.confidence === 'review' || choice.category === 'reimbursement' || (!category && row.review);
+  return {
+    ...row,
+    category: !review && category ? category : row.category,
+    suggestedCategory: review && category !== row.category ? category : undefined,
+    subscription: row.subscription ?? (!review && (row.kind === 'expense' || row.kind === 'refund') ? choice.subscription ?? undefined : undefined),
+    review,
+    reason: 'AI · ' + choice.reason,
+  };
+}
 
 export function buildLedger(ledger: Ledger, rules = emptyRules): Transaction[] {
   const ownAccounts = new Set(ledger.statements.filter(row => row.source === 'bank').map(row => row.accountId));
-  const transactions = ledger.transactions.map(raw => ({
-    ...raw,
-    originalMerchant: raw.merchant,
-    ...applyWorkRules(raw, classify(raw, ownAccounts, rules), rules.work),
-  }));
+  const transactions = ledger.transactions.map(raw => {
+    const row = { ...raw, originalMerchant: raw.merchant, ...applyWorkRules(raw, classify(raw, ownAccounts, rules), rules.work) };
+    return ledger.corrections[raw.id] ? row : applyAiClassification(row, ledger.aiClassifications?.[raw.id], rules);
+  });
   // Apply manual corrections on purchases before propagating their category to linked refunds and fees.
   for (const [index, row] of transactions.entries()) {
     if (row.kind !== 'refund' && !/^koersopslag/i.test(row.merchant)) {
@@ -33,15 +60,15 @@ export function buildLedger(ledger: Ledger, rules = emptyRules): Transaction[] {
 }
 
 export const emptyFilters: Filters = {
-  year: '', month: '', from: '', to: '', account: '', group: '', category: '', kind: '', query: '', subscriptions: true, tags: [], includeWork: false,
+  from: '', to: '', account: '', group: '', category: '', kind: '', query: '', subscriptions: true, tags: [], includeWork: false,
 };
 
 export function filterLedger(rows: Transaction[], filters: Filters) {
   const search = normalize(filters.query);
   const selectedTags = new Set(filters.tags.map(normalize));
+  const period = filters.period && periodBounds(filters.period);
   return rows.filter(row =>
-    (!filters.year || row.date.startsWith(filters.year)) &&
-    (!filters.month || row.date.slice(0, 7) === filters.month) &&
+    (!period || (row.date >= period.from && row.date <= period.to)) &&
     (!filters.from || row.date >= filters.from) &&
     (!filters.to || row.date <= filters.to) &&
     (!filters.account || row.accountId === filters.account) &&

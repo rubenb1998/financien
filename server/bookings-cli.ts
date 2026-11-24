@@ -1,13 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { buildLedger } from '../src/domain/ledger.ts';
-import { matchesKind, normalize } from '../src/domain/profile.ts';
+import { normalize } from '../src/domain/profile.ts';
 import { transactionTags } from '../src/domain/tags.ts';
-import { isWork, workTag } from '../src/domain/work.ts';
 import type { Transaction } from '../src/domain/types.ts';
 import { loadProfile } from './profile.ts';
 import { openStore } from './store.ts';
-import { readCorrection } from './validation.ts';
+import { bookingCorrection } from './booking-correction.ts';
 
 const [action, ...args] = process.argv.slice(2);
 
@@ -58,19 +57,7 @@ try {
       store.updateCorrection(id, ledger => {
         const row = buildLedger(ledger, rules).find(item => item.id === id);
         if (!row) throw new Error('Boeking niet gevonden.');
-        const next = readCorrection({
-          kind: row.kind, category: row.category, merchant: row.merchant, subscription: row.subscription,
-          tags: row.tags, claimStatus: row.claimStatus, note: ledger.corrections[id]?.note, ...patch,
-        });
-        if (!matchesKind(row.amount, next.kind)) throw new Error('Dit transactietype past niet bij het bedrag.');
-        if (next.kind === 'income' && next.category === 'reimbursement' && patch.tags === undefined && !isWork(next)) {
-          next.tags = [...(next.tags ?? []), workTag];
-        }
-        if (patch.claimStatus !== undefined && (next.kind !== 'expense' || !isWork(next))) {
-          throw new Error('Een declaratiestatus hoort bij een uitgave met de tag Declareren werk.');
-        }
-        if (next.kind !== 'expense' || !isWork(next)) next.claimStatus = undefined;
-        return next;
+        return bookingCorrection(row, ledger.corrections[id], patch);
       });
       const changed = buildLedger(store.load(), rules).find(row => row.id === id);
       if (changed) console.log(JSON.stringify(summary(changed), null, 2));

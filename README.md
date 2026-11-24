@@ -1,17 +1,36 @@
 # Financiën
 
-Een lokaal financieel dashboard voor één gebruiker. Importeer Rabobank-afschriften, bekijk je uitgaven en bespreek met AI hoe je boekingen, abonnementen, declaraties en spaardoelen wilt verwerken.
+Financiën is een lokaal dashboard voor je persoonlijke financiën. Importeer bankafschriften om te zien waar je geld naartoe gaat, welke kosten terugkomen en hoeveel ruimte je hebt om te sparen. Deze repository bevat de broncode, startknoppen voor macOS en Windows, tests en handleidingen.
 
-## Starten
+- **Inzicht in je geld** — bekijk inkomsten, uitgaven, banksaldi, categorieën en aanbieders. Zoek boekingen terug, pas de indeling aan en volg abonnementen en werkdeclaraties.
+- **Rapportages en spaarscenario’s** — vergelijk uitgaven over een periode, bekijk hoe je saldo zich kan ontwikkelen en download een rapport met de grafieken die je kiest.
+- **Optionele AI-chat** — stel vragen over je cijfers vanuit het dashboard, kies je model en bewaar terugkerende voorkeuren in je lokale chatgeheugen.
 
-Installeer Node.js 24 of nieuwer en haal deze repository op. Open de startknop van je systeem vanuit de projectmap.
+## Downloaden en openen
 
-- **macOS.** Dubbelklik op **Financiën.app** en sleep de app vanuit Finder naar je Dock om hem vast te zetten.
-- **Windows.** Dubbelklik op **Financien.exe**. Klik met rechts op de startknop en kies **Aan taakbalk vastmaken**. In Windows 11 staat die optie zo nodig onder **Meer opties weergeven**.
+1. Download op GitHub via **Code → Download ZIP** en pak de hele map uit, of kloon de repository.
+2. Installeer [Node.js 24 LTS](https://nodejs.org/en/download). Voor PDF-import installeer je ook [Python 3.13 of 3.14](https://www.python.org/downloads/) en voer je hieronder de opdrachten voor je systeem uit.
+3. Dubbelklik op **Financiën.app** (macOS) of **Financien.exe** (Windows) in de uitgepakte map. Sleep de app op macOS naar je Dock of maak op Windows een snelkoppeling naar het startbestand.
 
-De startknop installeert bij de eerste start de Node-pakketten, bouwt het dashboard en opent het in je standaardbrowser. De lokale server blijft draaien als je de browser sluit. De volgende klik gebruikt dezelfde server. Laat de startknop in de projectmap staan. Bij een startfout staan eventuele installatiedetails in `.private/launcher.log`.
+Op macOS, vanuit de uitgepakte projectmap:
 
-Je kunt het dashboard ook handmatig starten vanuit deze map.
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+Op Windows, vanuit de uitgepakte projectmap in PowerShell:
+
+```powershell
+python -m venv .venv
+.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt
+```
+
+Als Windows de opdracht `python` niet vindt en de Python-launcher wel geïnstalleerd is, gebruik je `py -3 -m venv .venv` voor de eerste regel.
+
+Laat de startknop in de projectmap staan. Bij de eerste start worden de Node-pakketten geïnstalleerd en wordt het dashboard gebouwd. Daarna opent Financiën in je standaardbrowser. De server blijft lokaal draaien wanneer je de browser sluit. De gebruikelijke poort is 4317. Als die bezet is, probeert de startknop 4318 tot en met 4326.
+
+Als het besturingssysteem de startknop blokkeert, kun je dezelfde app vanuit de projectmap starten. Bij een startfout via de startknop kan `.private/launcher.log` meer informatie geven.
 
 ```bash
 npm ci
@@ -19,45 +38,32 @@ npm run build
 npm start
 ```
 
-Na `npm start` open je het lokale dashboard op poort 4317. De startknop kiest automatisch een andere lokale poort als die poort bezet is. [Lokaal dashboard](http://127.0.0.1:4317/)
+Open [het dashboard](http://127.0.0.1:4317/) of volg de URL in de terminal.
 
-### PDF-import instellen
+## Eerste afschrift importeren
 
-Installeer Python 3 en voer deze eenmalige installatie uit als je afschriften wilt importeren.
+Open **Bronnen & import** en voeg een PDF-afschrift toe. De huidige PDF-import ondersteunt rekeningafschriften en creditcardoverzichten van **Rabobank**. Controleer na import of de periode en afschrifttotalen kloppen. Ga naar **Vermogen** om per rekening een bekend eindsaldo en de bijbehorende datum vast te leggen. Daarmee kan de app het saldo op andere dagen berekenen op basis van de beschikbare afschriften. [Eerste inrichting](START-HIER.md) · [Importhandleiding](docs/paginas/bronnen-en-import.md)
 
-**macOS**
+## AI-chat en geheugen
 
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-```
+Het dashboard en PDF-import werken zelfstandig. Wil je AI gebruiken, installeer dan **Codex CLI** of **Claude Code**, open **AI-chat**, selecteer je provider en klik op **CLI verbinden**. De app test de koppeling met een fictieve vraag. Je kunt daarna het model en redeneerniveau kiezen uit de opties van de gekozen CLI.
 
-**Windows**
+De snelle chat rechtsonder krijgt de actieve pagina en relevante selectie mee. Het gesprek wordt lokaal bewaard. Gebruik **‘Onthoud dat …’** voor een voorkeur die bij volgende vragen en rapportages kan worden gebruikt. Onder **AI-chat → Lokaal geheugen** zie je je voorkeuren en kun je die verwijderen. **Wis gesprek** leegt de gesprekshistorie. Classificatie bij import en wijzigingen door de chat schakel je zelf in. [AI-chat-handleiding](docs/paginas/ai-chat.md)
 
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
+## Rapportages
 
-## Samen met AI instellen
+Open **Rapportages** en vraag bijvoorbeeld *‘Waar gaat het meeste van mijn geld naartoe?’* of *‘Hoe ontwikkelt mijn banksaldo zich als ik zes maanden € 600 per maand wil sparen?’* De spaargrafiek vergelijkt je gebruikelijke uitgavenpatroon, het effect van voorgestelde aanpassingen en het scenario waarin je het doel haalt. Het advies houdt rekening met recente uitgaven en beschermt vaste lasten, zorg en bestaande abonnementen. Open het rapport onder **Eerdere rapporten** en kies welke grafieken meegaan via **Download PDF**.
 
-Open deze projectmap in een AI-assistent met toegang tot lokale bestanden en een terminal. Begin met deze opdracht.
+Rapportages ondersteunen een verbonden Codex- of Claude Code-CLI en **Lokaal** via Ollama. Voor de lokale optie kun je na installatie van Ollama bijvoorbeeld `ollama pull qwen3:1.7b` uitvoeren. De berekeningen zijn ook beschikbaar via `npm run --silent report`. [Rapportages-handleiding](docs/paginas/rapportages.md) · [Eerdere spaarscenario’s](docs/paginas/spaardoelen.md)
 
-> Lees AGENTS.md en START-HIER.md. Richt Financiën samen met mij in. Stel de vragen één voor één en leg uit hoe ik via jou boekingen kan indelen, vergoedingen kan doorgeven en een spaardoel kan doorrekenen.
+## Jouw gegevens
 
-Je kunt PDF-afschriften toevoegen via **Bronnen & import**. Begin bijvoorbeeld met ongeveer anderhalf jaar van je betaalrekening en creditcard over dezelfde periode. Meer over de volgorde en keuzes staat in de introductie. [START-HIER.md](START-HIER.md)
+Een nieuwe installatie begint leeg. Originele afschriften blijven op hun eigen locatie. De app bewaart geïmporteerde boekingen, instellingen, rapporten, gesprekken en geheugen standaard in `.private/financien.sqlite`. Gebruik een eigen projectmap of een aparte `FINANCIEN_DATA_DIR` per gebruiker. Gebruik afzonderlijke accounts op een gedeelde computer om die mappen met toegangsrechten af te schermen. Neem bij een privéverhuizing alleen je eigen datamap mee via een afgeschermde kopie.
 
-## Opslag en delen
+Het dashboard en de database draaien op je eigen apparaat. Als je Codex of Claude Code gebruikt, kan de provider je vraag, relevante paginacontext, voorkeuren en gericht opgevraagde gegevens ontvangen. Als je AI-classificatie bij import aanzet, kan die provider de benodigde boekingsvelden ontvangen. De PDF zelf wordt lokaal gelezen. [Opslag en instellingen](docs/systeem.md#projectkennis-en-persoonlijke-opslag)
 
-De eerste start maakt een leeg lokaal profiel aan. Je boekingen, correcties en plannen staan in `.private/financien.sqlite`. AI leest je bevestigde voorkeuren in `.private/profiel.md`. Automatische persoonlijke regels staan in `.private/regels.json`. Je oorspronkelijke afschriften blijven op de plek waar je ze bewaart.
+## Ontwikkeling en documentatie
 
-De app draait op localhost. Een AI-assistent met cloudverwerking kan de context ontvangen die hij leest. Deel voor een vraag alleen de relevante boekingen of totalen en geef expliciet aan wanneer je volledige afschriften wilt laten lezen.
+`src/` bevat het dashboard en de financiële berekeningen. `server/` bevat de API, SQLite-opslag, import en AI-koppelingen. Gebruik `npm run dev` om te ontwikkelen, `npm run check` voor typecontrole en tests en `npm run build` voor de productiebuild.
 
-Deel openbaar de broncode en de generieke Markdown-bestanden. Houd de volledige lokale datamap en je afschriften privé. Gebruik bij een eigen datamap via `FINANCIEN_DATA_DIR` een pad buiten de Git-checkout.
-
-## Verder werken
-
-- [Systeemwerking en opdrachten](docs/systeem.md)
-- [Werkinstructies voor AI](AGENTS.md)
-
-`npm run check` voert de typecontrole en tests uit. De workflow **Start op macOS en Windows** test ook de eerste start, het hergebruik van de achtergrondserver en de PDF-parser op beide systemen. Voor ontwikkeling start je de app met `npm run dev`.
+De [paginawijzer](docs/systeem.md#paginawijzer) beschrijft alle schermen. In [AGENTS.md](AGENTS.md) staan de instructies voor Codex en Claude Code. De [publicatiehandleiding](docs/publiceren.md) legt uit hoe je een broncodekopie maakt en controleert voordat je die deelt.

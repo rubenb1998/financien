@@ -27,6 +27,25 @@ async function listeningPid(port) {
   return Number(row?.at(-1));
 }
 
+async function examplePdf(lines) {
+  const { default: PDFDocument } = await import('pdfkit');
+  const doc = new PDFDocument({ margin: 24 });
+  const chunks = [];
+  const rendered = new Promise((resolve, reject) => {
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('error', reject);
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+  doc.font('Courier').fontSize(8);
+  for (const [index, line] of lines.entries()) doc.text(line, 24, 24 + 16 * index, { lineBreak: false });
+  doc.end();
+  return rendered;
+}
+
+const account = 'NL00FAKE0000000001 EUR';
+const bankColumns = (date, name, debit, credit = '') =>
+  date.padEnd(11) + ''.padEnd(26) + name.padEnd(29) + debit.padEnd(23) + credit;
+
 const otherService = createServer((_request, response) => response.end('Another local service'));
 await new Promise((resolve, reject) => {
   otherService.once('error', error => error.code === 'EADDRINUSE' ? resolve() : reject(error));
@@ -75,7 +94,65 @@ try {
   });
   assert.equal(upload.status, 400);
   assert.match((await upload.json()).error, /Kies een Rabobank-rekeningafschrift/);
-  console.log('First launch, detached server, port fallback, dashboard, SQLite and PDF parser verified.');
+  const api = (path, options) => fetch(new URL(path, first), options);
+  async function read(path, options) {
+    const response = await api(path, options);
+    const result = await response.json();
+    assert.equal(response.status, 200, result.error);
+    return result;
+  }
+  const initial = await read('/api/ledger');
+  assert.deepEqual(initial.statements, []);
+  assert.equal(initial.aiSettings.autoClassify, false);
+  assert.deepEqual(await read('/api/reports'), []);
+  assert.deepEqual((await read('/api/ai/chat')).memory, []);
+  assert.equal((await api('/api/ledger', { headers: { Origin: 'http://example.invalid' } })).status, 403);
+
+  const bank = await examplePdf([
+    'Rekeningafschrift', account, 'Datum vanaf', '01-10-2025', 'Datum tot en met', '31-10-2025',
+    'Totaal afgeschreven    Totaal bijgeschreven', 'EUR   37,50   2.100,00',
+    'Datum Code '.padEnd(11) + 'Tegenrekening'.padEnd(26) + 'Naam/omschrijving'.padEnd(29)
+      + 'Bedrag af (debet)'.padEnd(23) + 'Bedrag bij (credit)',
+    bankColumns('01-10 sb', 'Fictieve werkgever', '', '2.100,00'),
+    bankColumns('07-10 bc', 'Voorbeeld supermarkt', '37,50'),
+  ]);
+  const card = await examplePdf([
+    'Details Creditcard', account, 'Kaartnummer **** **** 1234', 'Periode 01-10-2025 t/m 31-10-2025',
+    'Totaal 0,00', 'bijgeschreven', 'Totaal afgeschreven 12,50', '10-10-2025  Voorbeeldwinkel  -12,50',
+  ]);
+  const importPdf = body => read('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body });
+  assert.equal((await importPdf(bank)).added, 2);
+  assert.equal((await importPdf(card)).added, 1);
+  assert.equal((await importPdf(bank)).duplicates, 2);
+  const imported = await read('/api/ledger');
+  assert.deepEqual(imported.transactions.map(row => row.amount).sort((a, b) => a - b), [-3750, -1250, 210000]);
+
+  const saved = await read('/api/ai/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: 'Onthoud dat ik eerst de vermogensgrafiek wil zien.', allowChanges: false,
+      activePage: { page: 'reports' } }),
+  });
+  assert.equal(saved.memory.length, 1);
+  assert.deepEqual((await read('/api/ai/chat')).memory, saved.memory);
+  await read('/api/ai/chat', { method: 'DELETE' });
+  assert.deepEqual((await read('/api/ai/chat')).memory, saved.memory);
+  assert.deepEqual(await read('/api/ai/memory/' + saved.memory[0].id, { method: 'DELETE' }), []);
+
+  const { openStore } = await import('../server/store.ts');
+  const { prepareReport } = await import('../server/reports.ts');
+  const store = openStore();
+  const { report } = prepareReport(store, { question: 'Hoe ziet zes maanden sparen eruit?', mode: 'saving',
+    target: 60_000, projectionMonths: 6, charts: ['projection'] });
+  try { store.saveReport(report); }
+  finally { store.close(); }
+  const restored = await read('/api/reports/' + report.id);
+  assert.deepEqual(restored.charts.map(chart => chart.id), ['projection']);
+  assert.equal(restored.charts[0].rows.length, 7);
+  const response = await api('/api/reports/' + report.id + '/pdf?charts=projection');
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/pdf');
+  assert.equal(Buffer.from(await response.arrayBuffer()).subarray(0, 5).toString(), '%PDF-');
+  console.log('Native start, empty storage, bank and card import, duplicate handling, chat memory and six-month report PDF verified.');
 } finally {
   if (pid) process.kill(pid);
   if (otherService.listening) otherService.close();

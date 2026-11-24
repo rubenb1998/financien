@@ -25,7 +25,7 @@
   --shadow: 0 1px 2px #24305408, 0 5px 22px #27376006;
 }
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; }
+body { margin: 0; min-width: 280px; }
 button, input, textarea { font: inherit; }
 button, a, input { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }

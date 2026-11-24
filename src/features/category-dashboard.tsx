@@ -1,12 +1,12 @@
 import { Building2, ChartNoAxesCombined, List, Receipt, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { TrendChart } from '../components/charts.tsx';
-import type { MonthSelection } from '../components/charts.tsx';
+import type { TrendContext } from '../components/charts.tsx';
 import { Dropdown } from '../components/dropdown.tsx';
 import { Empty, Metric, Panel } from '../components/ui.tsx';
 import { categories, categoryCollections, dashboardGroups, groupLabel } from '../domain/categories.ts';
 import { count, money } from '../domain/format.ts';
-import { byMerchant, isActivity, monthlyActivity, spendingActivity } from '../domain/merchant-breakdown.ts';
+import { activitySeries, byMerchant, isActivity, spendingActivity } from '../domain/merchant-breakdown.ts';
 import type { ActivityKind } from '../domain/merchant-breakdown.ts';
 import type { Transaction } from '../domain/types.ts';
 import { allCategories, categoryHref, scopeGroup } from '../routes.ts';
@@ -42,41 +42,36 @@ function CategorySelectors({ route, kind }: { route: CategoryRoute; kind: Activi
   </section>;
 }
 
-function MonthlyActivity({ rows, kind, from, to, monthSelection }: {
-  rows: Transaction[]; kind: ActivityKind; from: string; to: string; monthSelection: MonthSelection;
+function CategoryTrend({ rows, kind, trend }: {
+  rows: Transaction[]; kind: ActivityKind; trend: TrendContext;
 }) {
   const [measure, setMeasure] = useState<'amount' | 'count'>('amount');
   const amount = kind === 'income' ? 'Ontvangen' : 'Netto-uitgaven';
   const payments = kind === 'income' ? 'Bijschrijvingen' : 'Betalingen';
-  return <Panel title="Per maand" className="category-trend"
-    action={<div className="segmented" aria-label="Maatstaf per maand">
+  return <Panel title={trend.calendar.unit === 'day' ? 'Per dag' : 'Per maand'} className="category-trend"
+    action={<div className="segmented" role="group" aria-label="Grafiekweergave">
       <button type="button" aria-pressed={measure === 'amount'} onClick={() => setMeasure('amount')}>{amount}</button>
       <button type="button" aria-pressed={measure === 'count'} onClick={() => setMeasure('count')}>{payments}</button>
     </div>}>
-    <TrendChart series={monthlyActivity(rows, kind, from, to)} income={false} measure={measure}
-      amountLabel={amount} countLabel={payments} monthSelection={monthSelection} />
+    {rows.length ? <TrendChart series={activitySeries(rows, kind, trend.calendar)} income={false} measure={measure}
+      amountLabel={amount} countLabel={payments} trend={trend} /> : <Empty message="Geen boekingen in deze selectie." />}
   </Panel>;
 }
 
-export function CategoryDashboard({ route, rows, trendRows, from, to, monthSelection, accountLabels, onOpen, incomeOnly }: {
+export function CategoryDashboard({ route, rows, trend, accountLabels, onOpen, incomeOnly }: {
   route: CategoryRoute;
   rows: Transaction[];
-  trendRows: Transaction[];
-  from: string;
-  to: string;
-  monthSelection: MonthSelection;
+  trend: TrendContext;
   accountLabels: Map<string, string>;
   onOpen: (row: Transaction) => void;
   incomeOnly: boolean;
 }) {
   const { scope, merchant, bookings } = route;
-  if (merchant) return <ProviderDashboard route={{ ...route, merchant }} rows={rows} trendRows={trendRows}
-    from={from} to={to} monthSelection={monthSelection} accountLabels={accountLabels} onOpen={onOpen} />;
+  if (merchant) return <ProviderDashboard route={{ ...route, merchant }} rows={rows}
+    trend={trend} accountLabels={accountLabels} onOpen={onOpen} />;
 
   const kind = scopeGroup(scope) === 'income' || (scope.type === 'all' && incomeOnly) ? 'income' : 'spending';
-  const matches = (row: Transaction) => isActivity(row, kind);
-  const selected = rows.filter(matches);
-  const trend = trendRows === rows ? selected : trendRows.filter(matches);
+  const selected = rows.filter(row => isActivity(row, kind));
   const activity = spendingActivity(selected, kind);
   const suppliers = !bookings ? byMerchant(selected, kind) : [];
   const mostFrequent = suppliers.reduce<typeof suppliers[number] | undefined>((best, item) =>
@@ -99,10 +94,9 @@ export function CategoryDashboard({ route, rows, trendRows, from, to, monthSelec
             icon={<Building2 size={19} />} tone="blue" />}
     </div>
     {bookings ? <TransactionTable rows={selected} accountLabels={accountLabels} onOpen={onOpen} showOriginalMerchant />
-      : !trend.length && !monthSelection.selectedMonth ? <Empty message="Geen boekingen in deze selectie." />
-        : <>
+      : <>
           <div className={showBreakdown ? 'category-insight-grid' : undefined}>
-            <MonthlyActivity rows={trend} kind={kind} from={from} to={to} monthSelection={monthSelection} />
+            <CategoryTrend rows={selected} kind={kind} trend={trend} />
             {showBreakdown && <CategoryBreakdown rows={selected} kind={kind} byGroup={scope.type === 'all'} />}
           </div>
           <MerchantList scope={scope} items={suppliers} kind={kind} payments={activity.payments} />

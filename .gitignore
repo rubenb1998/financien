@@ -24,3 +24,16 @@ __pycache__/
 *.backup
 *.zip
 *.log
+
+# Keychains, local config and bank exports
+*.key
+*.pem
+*.p12
+*.pfx
+*.kdbx
+*.sqlite3-*
+*.qfx
+*.camt
+*.xlsm
+Thumbs.db
+Desktop.ini

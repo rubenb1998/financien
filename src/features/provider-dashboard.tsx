@@ -1,8 +1,8 @@
 import { ArrowDownLeft, ChartNoAxesCombined, List, Wallet } from 'lucide-react';
 import { TrendChart, TrendLegend } from '../components/charts.tsx';
-import type { MonthSelection } from '../components/charts.tsx';
+import type { TrendContext } from '../components/charts.tsx';
 import { Empty, Metric, Panel } from '../components/ui.tsx';
-import { monthlySeries } from '../domain/analytics.ts';
+import { trendSeries } from '../domain/analytics.ts';
 import { count, money } from '../domain/format.ts';
 import { summarize } from '../domain/ledger.ts';
 import { isActivity, isProviderBooking, merchantKey } from '../domain/merchant-breakdown.ts';
@@ -12,18 +12,17 @@ import type { CategoryRoute } from '../routes.ts';
 import { CategoryBreakdown } from './category-breakdown.tsx';
 import { TransactionTable } from './transactions.tsx';
 
-export function ProviderDashboard({ route, rows, trendRows, from, to, monthSelection, accountLabels, onOpen }: {
+export function ProviderDashboard({ route, rows, trend, accountLabels, onOpen }: {
   route: CategoryRoute & { merchant: string };
-  rows: Transaction[]; trendRows: Transaction[]; from: string; to: string; monthSelection: MonthSelection;
+  rows: Transaction[]; trend: TrendContext;
   accountLabels: Map<string, string>; onOpen: (row: Transaction) => void;
 }) {
   const { scope, merchant, bookings, withinCategory } = route;
   const matches = (row: Transaction) => isProviderBooking(row) && merchantKey(row) === merchant;
   const selected = rows.filter(matches);
-  const trend = trendRows === rows ? selected : trendRows.filter(matches);
   const totals = summarize(selected);
-  const canShowIncome = trend.some(row => row.kind === 'income');
-  const canShowSpending = trend.some(row => isActivity(row, 'spending'));
+  const canShowIncome = selected.some(row => row.kind === 'income');
+  const canShowSpending = selected.some(row => isActivity(row, 'spending'));
   const incomeOnly = canShowIncome && !canShowSpending;
   const overviewHref = categoryHref(scope, { merchant, withinCategory });
   const bookingsHref = categoryHref(scope, { merchant, withinCategory, bookings: true });
@@ -48,19 +47,19 @@ export function ProviderDashboard({ route, rows, trendRows, from, to, monthSelec
         caption={canShowIncome && canShowSpending ? `${money(totals.income)} aan inkomsten` : undefined}
         icon={<ArrowDownLeft size={19} />} tone="blue" />
     </div>
-    {bookings ? table : !trend.length && !monthSelection.selectedMonth ? <Empty message="Geen boekingen in deze selectie." /> : <>
+    {bookings ? table : !selected.length ? <Empty message="Geen boekingen in deze selectie." /> : <>
       <div className="category-insight-grid">
-        <Panel title="Per maand" className="category-trend"
+        <Panel title={trend.calendar.unit === 'day' ? 'Per dag' : 'Per maand'} className="category-trend"
           action={canShowIncome && canShowSpending && <TrendLegend income="Inkomsten" expenses="Netto-uitgaven" />}>
-          <TrendChart series={incomeOnly
-            ? monthlySeries(trend, from, to).map(point => ({ ...point, spent: point.income }))
-            : monthlySeries(trend, from, to)} monthSelection={monthSelection}
+          <TrendChart series={trendSeries(selected, trend.calendar, entries => {
+            const { income, spent } = summarize(entries);
+            return { income, spent: incomeOnly ? income : spent };
+          })} trend={trend}
             amountLabel={incomeOnly ? 'Inkomsten' : 'Netto-uitgaven'} income={canShowIncome && canShowSpending} />
         </Panel>
         <div className="provider-categories">
           {canShowSpending && <CategoryBreakdown rows={selected.filter(row => isActivity(row, 'spending'))} kind="spending" merchant={merchant} />}
           {canShowIncome && <CategoryBreakdown rows={selected.filter(row => isActivity(row, 'income'))} kind="income" merchant={merchant} />}
-          {!trend.length && <Empty message="Geen categorieën in deze selectie." />}
         </div>
       </div>
       <div className="provider-bookings"><h2>Boekingen</h2>{table}</div>

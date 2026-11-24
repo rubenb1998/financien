@@ -114,13 +114,12 @@ async function dashboardUrl() {
     lock.exec('BEGIN IMMEDIATE');
     const states = await Promise.all(ports.map(port => probe(port, health)));
     const running = ports[states.indexOf('ready')];
-    if (running !== undefined) return address(running) + '/';
-
     const available = ports.filter((_, index) => states[index] === 'free');
-    if (!available.length) throw new Error('Alle lokale poorten voor Financiën (4317–4326) zijn bezet.');
-    const log = openSync(join(privateDirectory, 'launcher.log'), 'w', 0o600);
+    if (running === undefined && !available.length) throw new Error('Alle lokale poorten voor Financiën (4317–4326) zijn bezet.');
+    const log = openSync(join(privateDirectory, 'launcher.log'), running === undefined ? 'w' : 'a', 0o600);
     try {
       await prepare(log);
+      if (running !== undefined) return address(running) + '/';
       for (const port of available) {
         if (await startPreview(port, health, log)) return address(port) + '/';
         // A different process may have claimed this port while we were building.

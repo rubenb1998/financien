@@ -4,8 +4,10 @@ import { dataDirectory } from './store.ts';
 
 export const healthPath = '/api/health';
 export const instanceHeader = 'x-financien-instance';
+// A running server from an earlier API version may not have the routes the current build uses.
+const apiVersion = '10';
 
 export function localInstance(projectRoot = process.cwd()) {
   const root = realpathSync(projectRoot);
-  return createHash('sha256').update(root).update('\0').update(dataDirectory(root)).digest('hex');
+  return createHash('sha256').update(root).update('\0').update(dataDirectory(root)).update('\0').update(apiVersion).digest('hex');
 }

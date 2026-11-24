@@ -6,21 +6,21 @@ import type { Page } from './domain/pages.ts';
 export type CategoryScope = { type: 'all' } | { type: 'group' | 'collection' | 'category'; key: string };
 export type CategoryRoute = { scope: CategoryScope; merchant?: string; withinCategory?: boolean; bookings?: boolean };
 export type TransactionScope = { type: 'transfers' } | { type: 'statement' | 'subscription'; key: string };
-export type Route = { page: Page; categoryRoute?: CategoryRoute; transactionScope?: TransactionScope; planId?: string };
+export type Route = { page: Page; categoryRoute?: CategoryRoute; transactionScope?: TransactionScope; reportId?: string; planId?: string };
 
 export const allCategories: CategoryScope = { type: 'all' };
 
 export function scopeGroup(scope: CategoryScope) {
   if (scope.type === 'group') return scope.key;
   if (scope.type === 'category') return groupOf(scope.key);
-  if (scope.type === 'collection') return categoryCollections[scope.key]?.group ?? '';
+  if (scope.type === 'collection') return categoryCollections[scope.key].group;
   return '';
 }
 
 export function scopeLabel(scope: CategoryScope) {
   if (scope.type === 'group') return groupLabel(scope.key);
   if (scope.type === 'category') return categoryLabel(scope.key);
-  if (scope.type === 'collection') return categoryCollections[scope.key]?.label ?? 'Alle uitgaven';
+  if (scope.type === 'collection') return categoryCollections[scope.key].label;
   return 'Alle uitgaven';
 }
 
@@ -45,6 +45,12 @@ export function mainNavigation(from: Page, to: Page, filters: { group: string; c
   const keepContext = fromOverview && toAnalysis;
   const href = keepContext && to === 'category-dashboard' ? categoryHref(categorySelection(filters)) : `#${to}`;
   return { href, keepContext };
+}
+
+export function filtersFollowLink(from: Route, to: Route) {
+  if (from.page === to.page) return true;
+  return ['overview', 'categories', 'category-dashboard'].includes(from.page)
+    && ['overview', 'categories', 'category-dashboard'].includes(to.page);
 }
 
 export function providerHref(merchant: string, category: string) {
@@ -92,8 +98,10 @@ function categoryRoute(parts: string[]): CategoryRoute {
 
 export function readRoute(hash: string): Route {
   const [page, ...parts] = hash.slice(1).split('/');
-  if (page === 'goals') return { page, planId: parts[0] };
-  if (page === 'sport') return { page: 'category-dashboard', categoryRoute: { scope: { type: 'group', key: 'sport' } } };
+  if (page === 'goals') return { page: 'reports', planId: parts[0] };
+  if (page === 'reports' && /^[a-f0-9-]{36}$/.test(parts[0] ?? '')) return { page, reportId: parts[0] };
+  if (page === 'sport') return { page: 'category-dashboard', categoryRoute: { scope: Object.hasOwn(categoryCollections, 'triathlon')
+    ? { type: 'collection', key: 'triathlon' } : { type: 'group', key: 'sport' } } };
   if (page === 'category-dashboard' || (page === 'categories' && parts[0])) {
     return { page: 'category-dashboard', categoryRoute: categoryRoute(parts) };
   }

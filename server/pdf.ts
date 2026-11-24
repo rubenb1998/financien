@@ -6,20 +6,21 @@ import type { RawTransaction, Statement } from '../src/domain/types.ts';
 
 const execute = promisify(execFile);
 const parser = fileURLToPath(new URL('./importers/rabobank.py', import.meta.url));
-const virtualPython = fileURLToPath(new URL(
-  process.platform === 'win32' ? '../.venv/Scripts/python.exe' : '../.venv/bin/python', import.meta.url,
-));
+const windows = process.platform === 'win32';
+const virtualPython = fileURLToPath(new URL(windows ? '../.venv/Scripts/python.exe' : '../.venv/bin/python', import.meta.url));
 
 export async function parsePdf(path: string): Promise<{ statement: Statement; transactions: RawTransaction[] }> {
-  const executable = process.env.FINANCIEN_PYTHON ?? (existsSync(virtualPython) ? virtualPython : process.platform === 'win32' ? 'python' : 'python3');
+  const executable = process.env.FINANCIEN_PYTHON ?? (existsSync(virtualPython) ? virtualPython : windows ? 'python' : 'python3');
   try {
     const { stdout } = await execute(executable, ['-X', 'utf8', parser, path], {
       maxBuffer: 32 * 1024 * 1024, timeout: 90_000, windowsHide: true,
     });
     return JSON.parse(stdout);
   } catch (error) {
-    const stderr = (error as { stderr?: string }).stderr?.trim();
-    if (stderr?.includes("No module named 'pypdf'")) throw new Error('Installeer eerst pypdf met het requirements.txt-bestand.');
+    const { code, stderr: output } = error as { code?: string; stderr?: string };
+    if (code === 'ENOENT') throw new Error('Python 3 ontbreekt. Volg de stappen voor PDF-import in de README.');
+    const stderr = output?.trim();
+    if (stderr?.includes("No module named 'pypdf'")) throw new Error('Installeer pypdf met requirements.txt volgens de stappen voor PDF-import in de README.');
     if (stderr && !stderr.includes('\n') && !stderr.includes('Traceback')) throw new Error(stderr);
     throw new Error('De PDF kon niet worden gelezen of is geen ondersteund Rabobank-afschrift.');
   }

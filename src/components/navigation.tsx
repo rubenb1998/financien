@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, ChartNoAxesCombined, ChartPie, CreditCard, Flag, LayoutDashboard, List, ShieldCheck, Wallet, TriangleAlert, Database } from 'lucide-react';
+import { BriefcaseBusiness, ChartNoAxesCombined, ChartPie, CreditCard, FileChartColumn, Landmark, LayoutDashboard, List, ShieldCheck, Wallet, TriangleAlert, Database, MessageCircle } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import { pageNames } from '../domain/pages.ts';
 import type { Page } from '../domain/pages.ts';
@@ -7,14 +7,16 @@ import { mainNavigation } from '../routes.ts';
 const sections = [
   { title: 'Inzicht', items: [
     ['overview', LayoutDashboard],
+    ['wealth', Landmark],
     ['transactions', List],
     ['categories', ChartPie],
     ['category-dashboard', ChartNoAxesCombined],
     ['subscriptions', CreditCard],
   ] },
   { title: 'Planning', items: [
-    ['goals', Flag],
+    ['reports', FileChartColumn],
     ['work', BriefcaseBusiness],
+    ['chat', MessageCircle],
   ] },
   { title: 'Gegevens', items: [
     ['review', TriangleAlert],

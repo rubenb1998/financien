@@ -1,14 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { CalendarDays, CreditCard, ListFilter, Search, X } from 'lucide-react';
 import { categories, groupLabel, groups, kinds } from '../domain/categories.ts';
-import { displayDate, displayMonthYear, shiftMonth } from '../domain/dates.ts';
-import { emptyFilters } from '../domain/ledger.ts';
+import { displayDate } from '../domain/dates.ts';
+import { periodBounds } from '../domain/periods.ts';
 import type { Filters, Statement } from '../domain/types.ts';
 import { Dropdown } from './dropdown.tsx';
+import { PeriodPicker } from './period-picker.tsx';
+import type { PeriodPickerProps } from './period-picker.tsx';
 
-export function FilterRail({ filters, set, statements, open, close, enabled, tags, analytics, months, categoryLocked = false }: {
-  filters: Filters; set: (filters: Filters) => void; statements: Statement[];
-  open: boolean; close: () => void; enabled: boolean; tags: string[]; analytics: boolean; months: string[]; categoryLocked?: boolean;
+export function FilterRail({ filters, set, reset, statements, open, close, enabled, tags, analytics, periodPicker, categoryLocked = false }: {
+  filters: Filters; set: (filters: Filters) => void; reset: () => void; statements: Statement[];
+  open: boolean; close: () => void; enabled: boolean; tags: string[]; analytics: boolean;
+  periodPicker: PeriodPickerProps; categoryLocked?: boolean;
 }) {
   const closeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -17,40 +20,34 @@ export function FilterRail({ filters, set, statements, open, close, enabled, tag
     closeButton.current?.focus();
     return () => { if (previous instanceof HTMLElement) previous.focus(); };
   }, [open]);
-  const years = [...new Set(statements.flatMap(row => Array.from(
-    { length: +row.to.slice(0, 4) - +row.from.slice(0, 4) + 1 }, (_, i) => String(+row.from.slice(0, 4) + i),
-  )))].sort().reverse();
   const newest = statements.map(row => row.to).sort().at(-1);
   const accounts = [...new Map(statements.map(row => [row.accountId, row])).values()];
-  const availableMonths = filters.month && !months.includes(filters.month) ? [...months, filters.month].sort() : months;
   const update = <K extends keyof Filters,>(key: K, value: Filters[K]) => set({ ...filters, [key]: value });
-  const lastThree = newest ? `${shiftMonth(newest.slice(0, 7), -2)}-01` : '';
-  const custom = Boolean(filters.from || filters.to);
-  const preset = filters.from === lastThree && filters.to === newest ? '3m' : !custom ? filters.year || 'all' : '';
+  const bounds = periodPicker.period && periodBounds(periodPicker.period);
 
   return <>
     {open && <button className="filter-backdrop" type="button" aria-label="Filters sluiten" onClick={close} />}
     <aside id="filters" onKeyDown={event => { if (open && event.key === 'Escape') close(); }} className={`filter-rail ${open ? 'is-open' : ''}`} aria-label={enabled ? 'Dashboardfilters' : 'Brondekking'}>
       <div className="filter-title">
         <div><ListFilter size={19} /><h2>{enabled ? 'Filters' : 'Brondekking'}</h2></div>
-        {enabled && <button className="plain-button" onClick={() => set({ ...emptyFilters })}>Wis alles</button>}
+        {enabled && <button className="plain-button" type="button" onClick={reset}>Wis filters</button>}
         <button ref={closeButton} className="icon-btn rail-close" type="button" onClick={close} aria-label="Sluiten"><X size={18} /></button>
       </div>
       {enabled ? <div className="filter-fields">
         <div className="filter-section">
           <h3><CalendarDays size={16} /> Periode</h3>
-          <div className="filter-presets">
-            {years.map(year => <button key={year} type="button" aria-pressed={preset === year}
-              onClick={() => set({ ...filters, year, month: '', from: '', to: '' })}>{year}</button>)}
-            {newest && <button type="button" aria-pressed={preset === '3m'} onClick={() => set({ ...filters, year: '', month: '', from: lastThree, to: newest })}>3 mnd</button>}
-            <button type="button" aria-pressed={preset === 'all'} onClick={() => set({ ...filters, year: '', month: '', from: '', to: '' })}>Alles</button>
-          </div>
-          <Dropdown field label="Maand" value={filters.month} onChange={value => update('month', value)} searchLabel="Zoek een maand"
-            options={[{ value: '', label: 'Alle maanden' }, ...availableMonths.map(value => ({ value, label: displayMonthYear(value) }))]} />
-          <div className="date-fields">
-            <label>Van<input type="date" value={filters.from} max={filters.to || undefined} onChange={event => set({ ...filters, year: '', month: '', from: event.target.value })} /></label>
-            <label>Tot en met<input type="date" value={filters.to} min={filters.from || undefined} onChange={event => set({ ...filters, year: '', month: '', to: event.target.value })} /></label>
-          </div>
+          <div className="rail-period-picker"><PeriodPicker {...periodPicker} /></div>
+          <details className="date-refinement" open={Boolean(filters.from || filters.to) || undefined}>
+            <summary>Datumbereik verfijnen</summary>
+            <div className="date-fields">
+              <button type="button" className="plain-button" aria-pressed={Boolean(filters.allPeriods)}
+                onClick={() => set({ ...filters, period: undefined, allPeriods: true, from: '', to: '' })}>Hele afschriftperiode</button>
+              <label>Van<input type="date" value={filters.from} min={bounds?.from} max={filters.to || bounds?.to}
+                onChange={event => set({ ...filters, period: periodPicker.period, from: event.target.value })} /></label>
+              <label>Tot en met<input type="date" value={filters.to} min={filters.from || bounds?.from} max={bounds?.to}
+                onChange={event => set({ ...filters, period: periodPicker.period, to: event.target.value })} /></label>
+            </div>
+          </details>
         </div>
         <div className="filter-section">
           <h3><CreditCard size={16} /> Rekening</h3>

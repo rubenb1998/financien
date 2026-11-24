@@ -1,6 +1,6 @@
 import { ListFilter, X } from 'lucide-react';
 import { categoryLabel, groupLabel, kinds } from '../domain/categories.ts';
-import { displayDate, displayMonthYear } from '../domain/dates.ts';
+import { displayDate } from '../domain/dates.ts';
 import type { Filters, Kind } from '../domain/types.ts';
 
 type ChipProps = { label: string } & ({ clear: () => void } | { href: string });
@@ -21,9 +21,7 @@ export function FilterSummary({ filters, set, analytics, categoryLocked, account
     : filters.from ? `Vanaf ${displayDate(filters.from)}` : filters.to ? `T/m ${displayDate(filters.to)}` : '';
   const chips: ChipProps[] = [];
   if (selection) chips.push(selection);
-  if (filters.year && !filters.month) chips.push({ label: filters.year, clear: patch({ year: '' }) });
   if (range) chips.push({ label: range, clear: patch({ from: '', to: '' }) });
-  if (filters.month) chips.push({ label: displayMonthYear(filters.month), clear: patch({ month: '' }) });
   if (filters.account) chips.push({ label: accountLabel ?? filters.account, clear: patch({ account: '' }) });
   if (!categoryLocked && filters.group) chips.push({ label: groupLabel(filters.group), clear: patch({ group: '' }) });
   if (!categoryLocked && filters.category) chips.push({ label: categoryLabel(filters.category), clear: patch({ category: '' }) });

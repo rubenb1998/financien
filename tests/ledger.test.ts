@@ -1,3 +1,4 @@
+import { trendSeries } from '../src/domain/analytics.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { defaultSubscriptionView, subscriptionInView } from '../src/domain/subscription-view.ts';
@@ -5,7 +6,8 @@ import { readProfile } from '../server/profile.ts';
 import { presentProviderAliases } from '../src/domain/merchant-breakdown.ts';
 import { buildLedger, emptyFilters, filterLedger, summarize } from '../src/domain/ledger.ts';
 import { completeMonths, limitToMonth, monthSpan } from '../src/domain/dates.ts';
-import { byMerchant, monthlyActivity } from '../src/domain/merchant-breakdown.ts';
+import { activitySeries, byMerchant } from '../src/domain/merchant-breakdown.ts';
+import { availableMonths, intersectDates, periodBounds, periodInYear, periodNavigation, trendCalendar } from '../src/domain/periods.ts';
 import { planningBaseline, projectGoals, savingsScenario } from '../src/domain/planning.ts';
 import { recurringItems } from '../src/domain/subscriptions.ts';
 import { compensationTag, reimbursedTag, returnedMoneyTag, returnedPurchaseTag, returnTag, transactionTags } from '../src/domain/tags.ts';
@@ -31,11 +33,11 @@ test('month selection intersects the current date range and category', () => {
     raw('previous-year', -500, 'Jumbo', { date: '2025-10-24' }),
     raw('before-start', -500, 'Jumbo', { date: '2026-10-01' }),
     raw('included', -500, 'Jumbo', { date: '2026-10-24' }),
-    raw('other-category', -500, 'Mantel', { date: '2026-10-23' }),
+    raw('other-category', -500, 'Voorbeeldfietsen', { date: '2026-10-23' }),
     raw('next-month', -500, 'Jumbo', { date: '2026-11-02' }),
   ]));
   const base = { ...emptyFilters, from: '2026-10-08', to: '2026-11-22', category: 'groceries' };
-  assert.deepEqual(filterLedger(rows, { ...base, month: '2026-10' }).map(row => row.id), ['included']);
+  assert.deepEqual(filterLedger(rows, { ...base, period: { unit: 'month', month: '2026-10' } }).map(row => row.id), ['included']);
   assert.deepEqual(limitToMonth(base.from, base.to, '2026-10'), { from: '2026-10-08', to: '2026-10-31' });
   assert.deepEqual(limitToMonth(base.from, base.to, '2026-11'), { from: '2026-11-01', to: '2026-11-22' });
   assert.deepEqual(monthSpan('2026-11-25', '2026-11-22'), []);
@@ -56,21 +58,25 @@ test('card funding, card settlement and savings transfers add zero to income and
   assert.equal(summarize(filterLedger(rows, { ...emptyFilters, subscriptions: false })).spent, 0);
 });
 
+const bicycleShopRules = readProfile({
+  version: 1, merchants: [{ pattern: 'voorbeeldfietsen', category: 'bike' }],
+}).rules;
+
 test('exact amount alone does not identify a transfer or a return', () => {
   const rows = buildLedger(ledger([
-    raw('purchase', -29_690, 'Mantel'),
-    raw('credit', 29_690, 'Andere afzender', { code: 'cb' }),
-    card('purchase-card', -29_690, 'Betaald aan winkel'),
-  ]));
+    raw('purchase', -23_741, 'Voorbeeldfietsen'),
+    raw('credit', 23_741, 'Andere afzender', { code: 'cb' }),
+    card('purchase-card', -23_741, 'Betaald aan winkel'),
+  ]), bicycleShopRules);
   assert.equal(rows.find(row => row.id === 'credit')?.kind, 'income');
   assert.equal(rows.some(row => row.linkedId), false);
 });
 
 test('matched merchant return offsets the original category and links both directions', () => {
   const rows = buildLedger(ledger([
-    raw('purchase', -29_690, 'Mantel'),
-    raw('refund', 29_690, 'Mantel', { code: 'cb', date: '2026-11-12' }),
-  ]));
+    raw('purchase', -23_741, 'Voorbeeldfietsen'),
+    raw('refund', 23_741, 'Voorbeeldfietsen', { code: 'cb', date: '2026-11-14' }),
+  ]), bicycleShopRules);
   assert.equal(summarize(rows).spent, 0);
   assert.equal(summarize(rows).income, 0);
   assert.equal(rows[0].category, 'bike');
@@ -80,9 +86,9 @@ test('matched merchant return offsets the original category and links both direc
 
 test('a matching name inside a wrapped payment request offsets spending', () => {
   const rows = buildLedger(ledger([
-    raw('purchase', -4_995, 'Mantel'),
-    raw('refund', 4_995, 'Rabo Betaalverzoek', { code: 'bv', details: 'Referentie:Naam:Ma\nntel\nVerwerkingsdatum: 10-11-2026' }),
-  ]));
+    raw('purchase', -6_273, 'Voorbeeldfietsen'),
+    raw('refund', 6_273, 'Rabo Betaalverzoek', { code: 'bv', details: 'Referentie:Naam:Voorbeeld\nfietsen\nVerwerkingsdatum: 14-11-2026' }),
+  ]), bicycleShopRules);
   assert.equal(rows.find(row => row.id === 'refund')?.kind, 'refund');
   assert.equal(summarize(rows).spent, 0);
 });
@@ -188,15 +194,15 @@ test('a confirmed recurring health insurance payment is a fixed cost', () => {
 
 test('returns, received compensation and confirmed reimbursements have distinct filter tags', () => {
   const rows = buildLedger(ledger([
-    raw('purchase', -29_690, 'Mantel'),
-    raw('refund', 29_690, 'Mantel', { code: 'cb', date: '2026-11-12' }),
+    raw('purchase', -23_741, 'Voorbeeldfietsen'),
+    raw('refund', 23_741, 'Voorbeeldfietsen', { code: 'cb', date: '2026-11-14' }),
     raw('compensation', 30_000, 'Werkgever', { code: 'cb', details: 'Declaratie november' }),
     card('paid', -8_800, 'OPENAI *CHATGPT SUBSCR'),
     card('unconfirmed', -8_800, 'OPENAI *CHATGPT SUBSCR'),
   ], { corrections: {
     compensation: { kind: 'income', category: 'reimbursement', tags: [workTag] },
     paid: { kind: 'expense', category: 'software', subscription: 'ChatGPT', tags: [workTag], claimStatus: 'paid' },
-  } }));
+  } }), bicycleShopRules);
   assert.ok(transactionTags(rows.find(row => row.id === 'purchase')!).includes(returnedPurchaseTag));
   const seen = filterLedger(rows, { ...emptyFilters, tags: [returnTag, compensationTag, reimbursedTag] });
   assert.deepEqual(seen.map(row => row.id).sort(), ['compensation', 'paid', 'refund']);
@@ -269,7 +275,8 @@ test('chain variants share one group and retain month totals and frequency', () 
     { name: 'Jumbo', payments: 2, net: 4_550 },
     { name: 'Albert Heijn', payments: 2, net: 3_000 },
   ]);
-  const monthly = monthlyActivity(rows.filter(row => row.merchant === 'Albert Heijn'), 'spending', '2026-10-01', '2026-11-30');
+  const period = { from: '2026-10-01', to: '2026-11-30' };
+  const monthly = activitySeries(rows.filter(row => row.merchant === 'Albert Heijn'), 'spending', trendCalendar(undefined, period, [period]));
   assert.deepEqual(monthly.map(({ spent, payments }) => ({ spent, payments })), [
     { spent: 3_000, payments: 1 }, { spent: 0, payments: 1 },
   ]);
@@ -324,4 +331,52 @@ test('utilities can be displayed independently of all other fixed charges', () =
   assert.deepEqual(shown(defaultSubscriptionView), ['streaming']);
   assert.deepEqual(shown({ ...defaultSubscriptionView, types: [], includeUtilities: true }), ['utilities']);
   assert.deepEqual(shown({ ...defaultSubscriptionView, types: ['fixed'] }), ['telecom']);
+});
+
+test('calendar quarter filters totals and plots three month buckets', () => {
+  const period = { unit: 'quarter', month: '2026-11' } as const;
+  const bounds = periodBounds(period);
+  assert.deepEqual(bounds, { from: '2026-10-01', to: '2026-12-31' });
+  const rows = buildLedger(ledger([
+    raw('before', -900, 'Jumbo', { date: '2026-09-30' }),
+    raw('first', -500, 'Jumbo', { date: '2026-10-01' }),
+    raw('last', -700, 'Jumbo', { date: '2026-12-31' }),
+    raw('after', -800, 'Jumbo', { date: '2027-01-01' }),
+  ]));
+  const filtered = filterLedger(rows, { ...emptyFilters, period });
+  const series = trendSeries(filtered, trendCalendar(period, bounds, [bounds]));
+  assert.deepEqual(series.map(({ date, spent }) => [date, spent]), [
+    ['2026-10', 500], ['2026-11', 0], ['2026-12', 700],
+  ]);
+  assert.equal(summarize(filtered).spent, 1200);
+});
+
+test('month charts distinguish unavailable days from covered days with zero bookings', () => {
+  const period = { unit: 'month', month: '2028-02' } as const;
+  const bounds = periodBounds(period);
+  const covered = intersectDates(bounds, { from: '2028-02-26', to: '2028-03-04' });
+  assert.deepEqual(covered, { from: '2028-02-26', to: '2028-02-29' });
+  const rows = buildLedger(ledger([raw('leap', -500, 'Jumbo', { date: '2028-02-29' })]));
+  const series = activitySeries(rows, 'spending', trendCalendar(period, bounds, covered ? [covered] : []));
+  assert.equal(series.length, 29);
+  assert.deepEqual(series.slice(-5).map(({ date, spent, payments }) => [date, spent, payments]), [
+    ['2028-02-25', null, undefined], ['2028-02-26', 0, 0], ['2028-02-27', 0, 0],
+    ['2028-02-28', 0, 0], ['2028-02-29', 500, 1],
+  ]);
+});
+
+test('period arrows navigate available periods across year boundaries', () => {
+  const months = availableMonths([
+    { from: '2025-11-20', to: '2026-01-15' },
+    { from: '2026-05-01', to: '2026-05-31' },
+    { from: '2026-05-22', to: '2026-06-04' },
+  ]);
+  assert.deepEqual(months, ['2025-11', '2025-12', '2026-01', '2026-05', '2026-06']);
+  assert.deepEqual(periodNavigation({ unit: 'quarter', month: '2026-01' }, months), {
+    previous: { unit: 'quarter', month: '2025-12' },
+    next: { unit: 'quarter', month: '2026-06' },
+  });
+  assert.equal(periodNavigation({ unit: 'month', month: '2026-06' }, months).next, undefined);
+  assert.deepEqual(periodInYear({ unit: 'month', month: '2026-05' }, '2025', months),
+    { unit: 'month', month: '2025-12' });
 });

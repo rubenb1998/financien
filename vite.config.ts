@@ -1,6 +1,7 @@
 import { defineConfig, normalizePath } from 'vite';
 import react from '@vitejs/plugin-react';
 import { createApi } from './server/api.ts';
+import { closeReportModel } from './server/report-model.ts';
 import { dataDirectory } from './server/store.ts';
 
 export default defineConfig({
@@ -10,9 +11,11 @@ export default defineConfig({
       name: 'financien-local-api',
       configureServer(server) {
         server.middlewares.use(createApi());
+        server.httpServer?.once('close', closeReportModel);
       },
       configurePreviewServer(server) {
         server.middlewares.use(createApi());
+        server.httpServer.once('close', closeReportModel);
       },
     },
   ],

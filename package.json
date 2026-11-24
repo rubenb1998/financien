@@ -2,12 +2,14 @@
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "lucide-react": "^1.78.0",
+    "pdfkit": "^0.21.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "recharts": "^3.11.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@types/pdfkit": "^0.17.7",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
@@ -24,8 +26,15 @@
     "check": "tsc --noEmit && node --test tests/*.test.ts",
     "import": "node server/import-cli.ts",
     "plan": "node server/plan-cli.ts",
+    "report": "node server/report-cli.ts",
     "instellingen": "node server/preferences-cli.ts",
-    "boeking": "node server/bookings-cli.ts"
+    "boeking": "node server/bookings-cli.ts",
+    "ai": "node server/ai-connect-cli.ts",
+    "release:check": "node scripts/release.mjs check",
+    "release:copy": "node scripts/release.mjs copy"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  }
 }

@@ -1,9 +1,10 @@
 import { isSubscriptionType } from '../src/domain/subscription-view.ts';
 import type { SubscriptionView } from '../src/domain/subscription-view.ts';
 import { categories, categoriesFor, kinds } from '../src/domain/categories.ts';
+import { todayInAmsterdam } from '../src/domain/dates.ts';
 import { claimStatuses } from '../src/domain/work.ts';
 import type { ClaimStatus } from '../src/domain/work.ts';
-import type { Correction, Goal, Kind, Scenario } from '../src/domain/types.ts';
+import type { AccountBalance, Correction, Goal, Kind, Scenario } from '../src/domain/types.ts';
 
 class InputError extends Error {}
 export { InputError };
@@ -11,6 +12,11 @@ export { InputError };
 const validAmount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100_000_000_00;
 const validId = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9-]{20,45}$/.test(value);
+
+export const isManualAccount = (value: unknown): value is string =>
+  typeof value === 'string' && /^manual-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value);
+export const isBalanceAccount = (value: unknown): value is string => isManualAccount(value)
+  || (typeof value === 'string' && /^[a-f0-9]{20}$/.test(value));
 
 function record(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new InputError('De invoer is ongeldig.');
@@ -72,4 +78,30 @@ export function readSubscriptionView(value: unknown): SubscriptionView {
     throw new InputError('Controleer de periode en soorten kosten voor abonnementen.');
   }
   return { types: [...new Set(types)], period, includeUtilities };
+}
+
+export function readBalance(value: unknown): { balance: AccountBalance; previousId?: string } {
+  const { accountId, amount, date, label, previousId } = record(value);
+  if (!isBalanceAccount(accountId) || typeof amount !== 'number' || !validAmount(Math.abs(amount))) {
+    throw new InputError('Kies een rekening en vul een geldig saldo in.');
+  }
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date < '1900-01-01' || date > todayInAmsterdam()
+    || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
+    throw new InputError('Vul een geldige saldodatum in.');
+  }
+  const name = isManualAccount(accountId) ? text(label, 80) : undefined;
+  if (name === '') throw new InputError('Geef de rekening een naam.');
+  if (previousId !== undefined && (!isManualAccount(previousId) || isManualAccount(accountId))) {
+    throw new InputError('Kies een geïmporteerde bankrekening om te koppelen.');
+  }
+  return { balance: { accountId, amount, date, label: name }, previousId };
+}
+
+export function readSavingsRate(value: unknown) {
+  const { rate } = record(value);
+  if (rate === null) return null;
+  if (typeof rate !== 'number' || !Number.isInteger(rate) || rate < 0 || rate > 100) {
+    throw new InputError('Vul een heel percentage van 0 tot 100 in.');
+  }
+  return rate;
 }

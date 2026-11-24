@@ -4,6 +4,7 @@ export interface BudgetLine {
   id: string;
   kind: BudgetKind;
   monthly: number;
+  subscriptionMonthly?: number;
   months: number;
   activeMonths: number;
 }

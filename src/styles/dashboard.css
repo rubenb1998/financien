@@ -29,8 +29,7 @@
 .chart-legend i, .split-list i { width: 8px; height: 8px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 .mint-dot { background: #43ac91; }
 .violet-dot { background: #957ded; }
-.chart-note { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 11px 1px 0; margin-top: auto; border-top: 1px solid var(--border); color: var(--muted); font-size: .83rem; }
-.chart-note strong { font-size: .84rem; color: var(--ink); }
+.chart-coverage { color: var(--muted); font-size: .75rem; line-height: 1.4; }
 .donut { height: 146px; max-width: 215px; position: relative; margin: 0 auto 7px; }
 .donut-center { position: absolute; inset: 0; display: grid; place-content: center; gap: 3px; text-align: center; pointer-events: none; }
 .donut-center strong { font-size: 1.28rem; letter-spacing: -.05em; }

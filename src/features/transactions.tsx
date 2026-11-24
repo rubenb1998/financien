@@ -21,7 +21,8 @@ interface TagFilter {
 }
 
 export interface TransactionFilters {
-  filters: Pick<Filters, 'month' | 'tags' | 'category' | 'account'>;
+  filters: Pick<Filters, 'tags' | 'category' | 'account'>;
+  selectedMonth: string;
   toggleMonth: (month: string) => void;
   toggleTag: (tag: string) => void;
   toggleCategory: (category: string) => void;
@@ -71,7 +72,7 @@ export function TransactionTable({ rows, accountLabels, onOpen, prioritizeAmount
           const categoryClass = `tag ${row.kind === 'transfer' || row.kind === 'pending' ? 'muted-tag' : ''}`;
           return <tr key={row.id}>
           <td className="date-cell">{transactionFilters
-            ? <button type="button" className="table-filter" aria-pressed={transactionFilters.filters.month === month}
+            ? <button type="button" className="table-filter" aria-pressed={transactionFilters.selectedMonth === month}
               aria-label={`${displayDate(row.date)}, filter op ${displayMonthYear(month)}`}
               onClick={() => filter(transactionFilters.toggleMonth, month)}>{displayDate(row.date)}</button>
             : displayDate(row.date)}</td>
@@ -144,6 +145,11 @@ export function TransactionDialog({ row, account, corrected, linked, openLinked,
     <TransactionTags row={row} />
     <div className="transaction-evidence">
       <strong>{kinds[row.kind]}</strong><p>{row.reason}</p>
+      {row.suggestedCategory && <button type="button" className="secondary compact" onClick={() => {
+        setKind(row.kind);
+        setCategory(row.suggestedCategory!);
+        if (row.suggestedCategory === 'reimbursement' && !isWork({ tags })) setTagInput([...tags, workTag].join(', '));
+      }}>Gebruik voorstel · {categoryLabel(row.suggestedCategory)}</button>}
       {linked && <button className="secondary compact" type="button" onClick={() => openLinked(linked)}>
         <Link2 size={15} /> {linked.merchant} · {displayDate(linked.date)} · {signedMoney(linked.amount)}
       </button>}

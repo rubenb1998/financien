@@ -51,12 +51,16 @@ export function savingsBaseline(rows: Transaction[], statements: Statement[], on
     const sample = annual ? reserveMonths : fixed ? months.slice(-3) : months;
     const sampled = entries.filter(row => sample.includes(row.date.slice(0, 7)));
     // Use outgoing fixed bills to avoid extrapolating one-off settlements as a monthly credit.
-    const monthlyTotals = sample.map(month => sampled.filter(row => row.date.startsWith(month))
-      .reduce((sum, row) => sum + (fixed && row.kind === 'refund' ? 0 : netSpend(row)), 0));
-    const monthly = fixed && !annual ? median(monthlyTotals)
-      : Math.round(monthlyTotals.reduce((sum, amount) => sum + amount, 0) / sample.length);
+    const monthlyEstimate = (entries: Transaction[]) => {
+      const monthlyTotals = sample.map(month => entries.filter(row => row.date.startsWith(month))
+        .reduce((sum, row) => sum + (fixed && row.kind === 'refund' ? 0 : netSpend(row)), 0));
+      return fixed && !annual ? median(monthlyTotals)
+        : Math.round(monthlyTotals.reduce((sum, amount) => sum + amount, 0) / sample.length);
+    };
+    const monthly = Math.max(0, monthlyEstimate(sampled));
+    const subscriptionMonthly = Math.max(0, Math.min(monthly, monthlyEstimate(sampled.filter(row => row.subscription))));
     const activeMonths = new Set(sampled.filter(row => row.kind === 'expense').map(row => row.date.slice(0, 7))).size;
-    return { id, kind, monthly: Math.max(0, monthly), months: sample.length, activeMonths };
+    return { id, kind, monthly, ...(subscriptionMonthly > 0 && { subscriptionMonthly }), months: sample.length, activeMonths };
   }).filter(line => line.monthly > 0).sort((a, b) => b.monthly - a.monthly);
   const spentMonthly = Math.round(rows.filter(row => !isWork(row) && months.includes(row.date.slice(0, 7)))
     .reduce((sum, row) => sum + netSpend(row), 0) / months.length);

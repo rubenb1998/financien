@@ -18,6 +18,9 @@ try {
     } else {
       console.log('Het lokale profiel is geldig.');
     }
+  } else if (section === 'geheugen' && !action) {
+    const store = openStore();
+    try { console.log(JSON.stringify(store.memory(), null, 2)); } finally { store.close(); }
   } else if (section === 'abonnementen' && (!action || action === '--save')) {
     const store = openStore();
     try {
@@ -27,7 +30,7 @@ try {
       store.close();
     }
   } else {
-    throw new Error('Gebruik npm run instellingen, of voeg -- categorieen of -- abonnementen [--save] toe.');
+    throw new Error('Gebruik npm run instellingen, of voeg -- categorieen, -- geheugen of -- abonnementen [--save] toe.');
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Instellingen lezen of opslaan is mislukt.');

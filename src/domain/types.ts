@@ -1,3 +1,4 @@
+import type { AiClassification, AiSettings } from './ai.ts';
 import type { CategoryPresentation } from './categories.ts';
 import type { SubscriptionView } from './subscription-view.ts';
 import type { ClaimStatus } from './work.ts';
@@ -53,6 +54,7 @@ export interface Classification {
 export interface Transaction extends RawTransaction, Classification {
   originalMerchant: string;
   returnedPurchase?: boolean;
+  suggestedCategory?: string;
 }
 
 export interface Correction {
@@ -79,6 +81,13 @@ export interface Scenario {
   cuts: Record<string, number>;
 }
 
+export interface AccountBalance {
+  accountId: string;
+  date: string;
+  amount: number;
+  label?: string;
+}
+
 export interface Ledger {
   statements: Statement[];
   transactions: RawTransaction[];
@@ -86,6 +95,9 @@ export interface Ledger {
   goals: Goal[];
   scenario: Scenario;
   plans?: SavingsPlan[];
+  balances?: AccountBalance[];
+  savingsRate?: number | null;
+  aiClassifications?: Record<string, AiClassification>;
 }
 
 export interface ImportResult {
@@ -95,8 +107,8 @@ export interface ImportResult {
 }
 
 export interface Filters {
-  year: string;
-  month: string;
+  period?: Period;
+  allPeriods?: boolean;
   from: string;
   to: string;
   account: string;
@@ -122,6 +134,16 @@ export interface DashboardLedger {
   goals: Goal[];
   scenario: Scenario;
   plans?: SavingsPlan[];
+  balances?: AccountBalance[];
+  savingsRate?: number | null;
   presentation: DashboardPresentation;
   subscriptionView: SubscriptionView | null;
+  aiSettings: AiSettings;
+}
+
+export type PeriodUnit = 'year' | 'quarter' | 'month';
+
+export interface Period {
+  unit: PeriodUnit;
+  month: string;
 }

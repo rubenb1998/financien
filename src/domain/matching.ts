@@ -67,6 +67,7 @@ export function linkRefunds(transactions: Transaction[], correctedIds: ReadonlyS
     refund.tags = [...new Set([...(refund.tags ?? []), ...(match.tags ?? [])])];
     refund.merchant = match.merchant;
     refund.review = match.review;
+    refund.suggestedCategory = match.suggestedCategory;
     refund.reason = reason;
   }
 }

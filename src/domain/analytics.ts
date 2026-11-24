@@ -1,6 +1,7 @@
 import { categoryLabel, groupOf } from './categories.ts';
 import { displayMonth, monthSpan } from './dates.ts';
 import { netSpend, summarize } from './ledger.ts';
+import type { TrendCalendar } from './periods.ts';
 import type { Transaction } from './types.ts';
 
 export function spendBy(rows: Transaction[], key: (row: Transaction) => string) {
@@ -29,5 +30,16 @@ export function monthlySeries(rows: Transaction[], from: string, to: string) {
     const subset = rows.filter(row => row.date.startsWith(month));
     const { spent, income } = summarize(subset);
     return { month, label: displayMonth(month), spent, income };
+  });
+}
+
+export type TrendPoint = { date: string; spent: number | null; income?: number | null; payments?: number | null };
+
+export function trendSeries(rows: Transaction[], calendar: TrendCalendar,
+  measure: (rows: Transaction[]) => Omit<TrendPoint, 'date'> = summarize): TrendPoint[] {
+  const grouped = Map.groupBy(rows, row => calendar.unit === 'day' ? row.date : row.date.slice(0, 7));
+  return calendar.buckets.map(({ date, covered }) => {
+    const entries = grouped.get(date) ?? [];
+    return { date, ...(covered || entries.length ? measure(entries) : { spent: null }) };
   });
 }

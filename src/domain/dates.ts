@@ -9,6 +9,8 @@ export const displayMonth = (month: string) => monthFormat.format(new Date(`${mo
 export const displayMonthYear = (month: string) => monthYearFormat.format(new Date(`${month}-01`));
 export const addDays = (date: string, days: number) => new Date(Date.parse(date) + days * dayMs).toISOString().slice(0, 10);
 
+export const todayInAmsterdam = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Amsterdam' }).format(new Date());
+
 export function shiftMonth(month: string, offset: number) {
   const [year, number] = month.split('-').map(Number);
   return new Date(Date.UTC(year, number - 1 + offset, 1)).toISOString().slice(0, 7);
